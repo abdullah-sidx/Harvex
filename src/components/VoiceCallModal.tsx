@@ -407,9 +407,6 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
               <h3 className="text-sm font-bold text-white tracking-wide">
                 {isHi ? 'हार्वेक्स वॉयस चैट' : 'Harvex Voice Chat'}
               </h3>
-              <p className="text-[11px] text-emerald-400 font-medium">
-                {isHi ? 'व्हाट्सएप वॉयस नोट स्टाइल' : 'WhatsApp Voice Note Style'}
-              </p>
             </div>
           </div>
 
