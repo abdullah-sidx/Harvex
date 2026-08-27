@@ -1,0 +1,11 @@
+{
+  "name": "Harvex",
+  "description": "Smart agricultural monitoring, AI leaf disease diagnostics, irrigation control, and multilingual voice assistant for farmers.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
