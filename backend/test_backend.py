@@ -34,7 +34,7 @@ def test_post_sensor_data_valid():
     }
     response = client.post("/api/sensor-data", json=payload)
     assert response.status_code == 200
-    assert response.json() == {"status": "received"}
+    assert response.json()["status"] in {"received", "success"}
 
 
 def test_post_sensor_data_malformed():
@@ -406,3 +406,91 @@ def test_chat_text_endpoint():
     assert "reply" in data
     assert len(data["reply"]) > 0
     assert data["language"] == "en"
+
+
+def test_sensor_telemetry_and_heartbeat():
+    # 1. Post telemetry from NodeMCU
+    res = client.post("/api/sensor-data", json={
+        "device_id": "harvex-node-1",
+        "soil_moisture_pct": 35.5,
+        "temperature_c": 29.0,
+        "humidity_pct": 52.0,
+        "pump_status": "off"
+    })
+    assert res.status_code == 200
+    assert res.json()["status"] == "success"
+
+    # 2. Check sensor heartbeat returns both updated_at and last_updated_timestamp
+    sensor_res = client.get("/api/sensor-data")
+    assert sensor_res.status_code == 200
+    sensor_data = sensor_res.json()
+    assert "last_updated_timestamp" in sensor_data
+    assert sensor_data["last_updated_timestamp"] is not None
+    assert sensor_data["soil_moisture_pct"] == 35.5
+
+
+def test_manual_pump_toggle_and_history():
+    from telemetry_state import get_pending_pump_command
+
+    # 1. Manually toggle pump to ON via web UI endpoint
+    toggle_res = client.post("/api/pump/toggle", json={
+        "state": "on",
+        "duration_seconds": 30,
+        "triggered_by": "WEBSITE"
+    })
+    assert toggle_res.status_code == 200
+    assert toggle_res.json()["pump_command"] == "on"
+    assert toggle_res.json()["display_message"] == "Web Pump ON"
+
+    cmd = get_pending_pump_command()
+    assert cmd["pump_command"] == "on"
+    assert cmd["display_message"] == "Web Pump ON"
+
+    # 2. Verify pump history has entry
+    hist_res = client.get("/api/pump/history")
+    assert hist_res.status_code == 200
+    history = hist_res.json()
+    assert len(history) > 0
+    assert history[0]["action"] == "ON"
+    assert history[0]["triggered_by"] == "WEBSITE"
+
+    # 3. Manually toggle pump to OFF via web UI endpoint
+    toggle_res2 = client.post("/api/pump/toggle", json={
+        "state": "off",
+        "triggered_by": "WEBSITE"
+    })
+    assert toggle_res2.status_code == 200
+    assert toggle_res2.json()["pump_command"] == "off"
+    assert toggle_res2.json()["display_message"] == "Web Pump OFF"
+
+    cmd2 = get_pending_pump_command()
+    assert cmd2["pump_command"] == "off"
+    assert cmd2["display_message"] == "Web Pump OFF"
+
+
+def test_sarvam_stt_and_voice_fallback():
+    import io
+
+    # 1. Test /api/sarvam/stt endpoint with dummy file
+    dummy_wav = io.BytesIO(b"RIFF....WAVEfmt ....data....")
+    res_stt = client.post(
+        "/api/sarvam/stt",
+        files={"file": ("test.wav", dummy_wav, "audio/wav")},
+        data={"language": "hi-IN"}
+    )
+    assert res_stt.status_code == 200
+    assert "transcript" in res_stt.json()
+
+    # 2. Test /api/sarvam/voice fallback endpoint with empty audio
+    empty_file = io.BytesIO(b"")
+    res_voice = client.post(
+        "/api/sarvam/voice",
+        files={"file": ("test.wav", empty_file, "audio/wav")},
+        data={"language": "hi-IN", "device_id": "harvex-node-1"}
+    )
+    assert res_voice.status_code == 200
+    assert res_voice.json()["transcript"] == ""
+
+
+
+

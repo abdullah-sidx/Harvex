@@ -31,15 +31,47 @@ def get_sarvam_api_key() -> str:
 
 
 def normalize_language_code(lang: str) -> str:
-    """Normalize language identifier to Sarvam standard code ('hi-IN' or 'en-IN')."""
+    """Normalize language identifier to Sarvam standard code ('hi-IN', 'en-IN', or 'unknown')."""
     if not lang:
         return "hi-IN"
     lang_lower = lang.strip().lower()
+    if lang_lower in {"unknown", "auto", "detect"}:
+        return "unknown"
     if lang_lower in {"hi", "hindi", "hi-in"}:
         return "hi-IN"
     elif lang_lower in {"en", "english", "en-in"}:
         return "en-IN"
     return lang
+
+
+def sanitize_audio_content_type(content_type: str, filename: str = "") -> str:
+    """
+    Normalize and sanitize MIME content-type for Sarvam AI STT API.
+    Sarvam AI rejects parameters like ';codecs=opus' with 400 Invalid file type.
+    Allowed types: audio/webm, audio/wav, audio/mp3, audio/mpeg, audio/ogg, audio/flac, audio/aac
+    """
+    raw_ct = (content_type or "").split(";")[0].strip().lower()
+    ALLOWED_TYPES = {
+        "audio/webm", "audio/wav", "audio/x-wav", "audio/mp3",
+        "audio/mpeg", "audio/ogg", "audio/flac", "audio/aac"
+    }
+    if raw_ct in ALLOWED_TYPES:
+        return raw_ct
+
+    fname = (filename or "").lower()
+    if fname.endswith(".wav"):
+        return "audio/wav"
+    elif fname.endswith(".mp3"):
+        return "audio/mp3"
+    elif fname.endswith(".ogg"):
+        return "audio/ogg"
+    elif fname.endswith(".flac"):
+        return "audio/flac"
+    elif fname.endswith(".aac"):
+        return "audio/aac"
+
+    return "audio/webm"
+
 
 
 async def text_to_speech(
@@ -105,10 +137,15 @@ async def text_to_speech(
 async def speech_to_text(
     file_bytes: bytes,
     language_code: str = "hi-IN",
-    model: str = "saaras:v1"
+    model: str = "saarika:v2.5",
+    filename: str = "voice_input.webm",
+    content_type: str = "audio/webm"
 ) -> str:
     """
     Transcribe spoken voice audio to text using Sarvam AI Speech-to-Text API.
+    Uses 'saarika:v2.5' model which supports high-accuracy Indic transcription.
+    Automatically sanitizes content_type and auto-retries with language_code='unknown'
+    if the language specific prompt yields no text.
     """
     api_key = get_sarvam_api_key()
     if not api_key:
@@ -119,31 +156,54 @@ async def speech_to_text(
         return ""
 
     target_lang = normalize_language_code(language_code)
+    clean_content_type = sanitize_audio_content_type(content_type, filename)
+    clean_filename = filename if filename.endswith((".webm", ".wav", ".mp3", ".ogg")) else "voice_input.webm"
 
     headers = {
         "api-subscription-key": api_key
     }
 
     files = {
-        "file": ("voice_input.wav", file_bytes, "audio/wav")
+        "file": (clean_filename, file_bytes, clean_content_type)
     }
 
     data = {
         "language_code": target_lang,
-        "model": model
+        "model": model or "saarika:v2.5"
     }
 
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with httpx.AsyncClient(timeout=25.0) as client:
             response = await client.post(STT_ENDPOINT, headers=headers, files=files, data=data)
+            transcript = ""
             if response.status_code == 200:
                 resp_json = response.json()
-                transcript = resp_json.get("transcript", "")
-                logger.info(f"Successfully transcribed audio via Sarvam STT: '{transcript}'")
-                return transcript
+                transcript = (resp_json.get("transcript", "") or "").strip()
+                logger.info(f"Successfully transcribed audio via Sarvam STT ({target_lang}): '{transcript}'")
             else:
-                logger.error(f"Sarvam STT Error {response.status_code}: {response.text}")
-                return ""
+                logger.warning(f"Sarvam STT attempt ({target_lang}, {clean_content_type}) returned {response.status_code}: {response.text}")
+
+            # If specific language yielded empty transcript, retry with auto-detection ('unknown')
+            if not transcript and target_lang != "unknown":
+                logger.info(f"Sarvam STT returned empty for '{target_lang}', retrying with language_code='unknown'...")
+                retry_data = {
+                    "language_code": "unknown",
+                    "model": model or "saarika:v2.5"
+                }
+                retry_files = {
+                    "file": (clean_filename, file_bytes, clean_content_type)
+                }
+                retry_resp = await client.post(STT_ENDPOINT, headers=headers, files=retry_files, data=retry_data)
+                if retry_resp.status_code == 200:
+                    retry_json = retry_resp.json()
+                    transcript = (retry_json.get("transcript", "") or "").strip()
+                    logger.info(f"Sarvam STT auto-detect retry yielded: '{transcript}'")
+                else:
+                    logger.warning(f"Sarvam STT auto-detect retry returned {retry_resp.status_code}: {retry_resp.text}")
+
+            return transcript
     except Exception as e:
         logger.error(f"Error during Sarvam STT request: {e}")
         return ""
+
+

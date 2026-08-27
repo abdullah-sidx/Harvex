@@ -30,6 +30,9 @@ from schemas import (
     TextChatResponse,
     VoiceQueryRequest,
     VoiceQueryResponse,
+    PumpToggleRequest,
+    PumpToggleResponse,
+    PumpHistoryItem,
 )
 import database
 import weather
@@ -40,6 +43,21 @@ from model import (
 )
 import decision
 import sarvam
+from datetime import datetime, timezone
+from telemetry_state import (
+    latest_sensor_data,
+    get_latest_sensor_data,
+    update_latest_sensor_data,
+    get_pending_pump_command,
+    set_pending_pump_command,
+    is_manual_pump_override_active,
+    clear_manual_pump_override,
+    add_in_memory_pump_history,
+    get_in_memory_pump_history,
+    sensor_data,
+    get_sensor_data,
+    update_sensor_data,
+)
 
 logger = logging.getLogger("harvex.routes")
 
@@ -50,23 +68,45 @@ router = APIRouter(prefix="/api", tags=["Harvex API"])
     "/sensor-data",
     response_model=SensorDataResponse,
     status_code=status.HTTP_200_OK,
-    summary="Receive telemetry from ESP32 field nodes"
+    summary="Receive telemetry from NodeMCU ESP8266 field nodes"
 )
 async def post_sensor_data(payload: SensorDataPayload):
     """
-    Called by ESP32 field node every 5-10 seconds to publish real-time
-    soil moisture, temperature, humidity, and pump status.
+    Called by NodeMCU ESP8266 / ESP32 field nodes every loop to publish real-time
+    soil moisture, temperature, humidity, and pump status over Wi-Fi.
+    Accepts JSON: {"soil_moisture": float, "temperature": float, "humidity": float}
     """
     try:
-        database.save_sensor_reading(
-            device_id=payload.device_id,
-            timestamp=payload.timestamp,
-            soil_moisture_pct=payload.soil_moisture_pct,
-            temperature_c=payload.temperature_c,
-            humidity_pct=payload.humidity_pct,
-            pump_status=payload.pump_status
+        now_iso = payload.timestamp or datetime.now(timezone.utc).isoformat()
+        dev_id = payload.device_id or "harvex-node-1"
+        sm = float(payload.soil_moisture if payload.soil_moisture is not None else payload.soil_moisture_pct)
+        tc = float(payload.temperature if payload.temperature is not None else payload.temperature_c)
+        hp = float(payload.humidity if payload.humidity is not None else payload.humidity_pct)
+        ps = (payload.pump_status or "off").strip().lower()
+
+        # 1. Update global in-memory latest_sensor_data & refresh sensor heartbeat
+        update_latest_sensor_data(
+            soil_moisture=sm,
+            temperature=tc,
+            humidity=hp,
+            pump_status=ps,
+            device_id=dev_id,
+            timestamp=now_iso
         )
-        return SensorDataResponse(status="received")
+
+        # 2. Persist to SQLite database
+        database.save_sensor_reading(
+            device_id=dev_id,
+            timestamp=now_iso,
+            soil_moisture_pct=sm,
+            temperature_c=tc,
+            humidity_pct=hp,
+            pump_status=ps
+        )
+
+        return SensorDataResponse(status="success")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error persisting sensor data: {e}")
         raise HTTPException(
@@ -76,30 +116,150 @@ async def post_sensor_data(payload: SensorDataPayload):
 
 
 @router.get(
+    "/sensor-data",
+    status_code=status.HTTP_200_OK,
+    summary="Get current real-time sensor data telemetry"
+)
+async def get_sensor_data_endpoint():
+    """
+    Polled by frontend dashboard to display real-time Soil Moisture, Temperature, and Humidity.
+    Returns current in-memory latest_sensor_data, falling back to SQLite if not yet updated.
+    """
+    curr = dict(get_latest_sensor_data())
+    if curr.get("updated_at") is None and curr.get("last_updated_timestamp") is None:
+        try:
+            latest = database.get_latest_sensor_reading("harvex-node-1")
+            if latest and latest.get("timestamp"):
+                curr["soil_moisture_pct"] = float(latest.get("soil_moisture_pct", 50.0))
+                curr["soil_moisture"] = curr["soil_moisture_pct"]
+                curr["temperature_c"] = float(latest.get("temperature_c", 24.0))
+                curr["temperature"] = curr["temperature_c"]
+                curr["humidity_pct"] = float(latest.get("humidity_pct", 68.0))
+                curr["humidity"] = curr["humidity_pct"]
+                curr["pump_status"] = str(latest.get("pump_status", "off"))
+                curr["updated_at"] = str(latest.get("timestamp"))
+                curr["last_updated_timestamp"] = str(latest.get("timestamp"))
+        except Exception:
+            pass
+
+    # Ensure both updated_at and last_updated_timestamp are always available
+    ts = curr.get("updated_at") or curr.get("last_updated_timestamp")
+    curr["updated_at"] = ts
+    curr["last_updated_timestamp"] = ts
+    return curr
+
+
+@router.get(
     "/pump-command",
     response_model=PumpCommandResponse,
     status_code=status.HTTP_200_OK,
-    summary="Get irrigation control command for ESP32 node"
+    summary="Get irrigation control command for NodeMCU / ESP8266 node"
 )
 async def get_pump_command(device_id: str = Query(default="harvex-node-1", description="Device Identifier")):
     """
-    Polled by ESP32 field node every 5-10 seconds.
-    Fuses latest soil moisture reading with live weather rain forecast.
+    Polled by NodeMCU ESP8266 field node every loop.
+    Returns pending_pump_command if a manual web override is active,
+    otherwise fuses latest soil moisture reading with live weather rain forecast.
     """
-    # 1. Fetch latest sensor telemetry
-    sensor_data = database.get_latest_sensor_reading(device_id=device_id)
-    soil_moisture = sensor_data.get("soil_moisture_pct", 50.0)
+    # 1. Check if user initiated a manual toggle from the website
+    if is_manual_pump_override_active():
+        cmd = get_pending_pump_command()
+        return PumpCommandResponse(
+            pump_command=cmd.get("pump_command", "off"),
+            max_runtime_seconds=cmd.get("max_runtime_seconds", 0),
+            display_message=cmd.get("display_message", "Web Pump Command")
+        )
 
-    # 2. Check cached rain forecast
+    # 2. Otherwise calculate automatic agronomic decision
+    live = get_latest_sensor_data()
+    soil_moisture = float(live.get("soil_moisture_pct", 50.0))
+    if live.get("updated_at") is None:
+        sensor_rec = database.get_latest_sensor_reading(device_id=device_id)
+        soil_moisture = float(sensor_rec.get("soil_moisture_pct", 50.0))
+
     _, rain_expected = weather.get_rain_forecast()
 
-    # 3. Apply decision logic
     command_data = decision.compute_pump_command(
         soil_moisture_pct=soil_moisture,
         rain_expected=rain_expected
     )
-
     return PumpCommandResponse(**command_data)
+
+
+@router.post(
+    "/pump/toggle",
+    response_model=PumpToggleResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Manually toggle irrigation pump relay from website"
+)
+async def toggle_pump(payload: PumpToggleRequest):
+    """
+    Triggered by frontend pump button. Updates pending_pump_command,
+    adds an entry to pump_history, and sets an LCD display message ("Web Pump ON" / "Web Pump OFF").
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    is_on = payload.state.lower() == "on"
+    action = "ON" if is_on else "OFF"
+    runtime = payload.duration_seconds if is_on else 0
+    msg = "Web Pump ON" if is_on else "Web Pump OFF"
+
+    # 1. Update pending command for NodeMCU
+    cmd = set_pending_pump_command(
+        pump_command=payload.state,
+        max_runtime_seconds=runtime,
+        display_message=msg
+    )
+
+    # 2. Record pump history entry
+    hist_id = f"pump-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+    history_entry = {
+        "id": hist_id,
+        "timestamp": now_iso,
+        "action": action,
+        "triggered_by": (payload.triggered_by or "WEBSITE").upper(),
+        "duration_seconds": runtime
+    }
+
+    try:
+        database.add_pump_history(
+            id=hist_id,
+            timestamp=now_iso,
+            action=action,
+            triggered_by=history_entry["triggered_by"],
+            duration_seconds=runtime
+        )
+        if is_on:
+            database.update_last_watered("harvex-node-1", now_iso)
+    except Exception as e:
+        logger.warning(f"Failed to persist pump history to SQLite: {e}")
+
+    add_in_memory_pump_history(history_entry)
+
+    logger.info(f"[pump/toggle] Set pump {action} via {history_entry['triggered_by']} (runtime={runtime}s)")
+
+    return PumpToggleResponse(
+        status="success",
+        pump_command=cmd["pump_command"],
+        display_message=cmd["display_message"],
+        history_entry=history_entry
+    )
+
+
+@router.get(
+    "/pump/history",
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve list of past irrigation events sorted by newest first"
+)
+async def get_pump_history_endpoint(limit: int = Query(default=50, ge=1, le=100)):
+    """Returns list of past irrigation events sorted by newest first."""
+    try:
+        db_hist = database.get_pump_history(limit=limit)
+        if db_hist:
+            return db_hist
+    except Exception as e:
+        logger.warning(f"Failed to fetch pump history from database: {e}")
+
+    return get_in_memory_pump_history(limit=limit)
 
 
 @router.post(
@@ -805,9 +965,13 @@ async def chat_voice(payload: VoiceChatRequest):
     if farm:
         farm_desc = f"Farmer Profile: State: {farm.state}, District: {farm.district}, Soil: {farm.soil_type}, Irrigation: {farm.irrigation}."
     
-    sensor_desc = ""
-    if sensor:
+    live = get_latest_sensor_data()
+    if live.get("updated_at"):
+        sensor_desc = f"Current Farm Vitals (Live NodeMCU ESP8266): Soil Moisture: {live.get('soil_moisture_pct')}%, Temp: {live.get('temperature_c')}°C, Humidity: {live.get('humidity_pct')}%, Pump: {live.get('pump_status', 'off')}."
+    elif sensor:
         sensor_desc = f"Current Farm Vitals: Soil Moisture: {sensor.get('soilMoisture', 42)}%, Temp: {sensor.get('temperature', 28)}°C, Watering: {sensor.get('isWatering', False)}."
+    else:
+        sensor_desc = ""
 
     sys_prompt = f"""You are Harvex AI Agronomist on a real-time hands-free voice phone call with a farmer.
 {farm_desc}
@@ -882,9 +1046,13 @@ async def chat_text(payload: TextChatRequest):
     if farm:
         farm_desc = f"Farmer Profile: State: {farm.state}, District: {farm.district}, Soil: {farm.soil_type}, Irrigation: {farm.irrigation}."
     
-    sensor_desc = ""
-    if sensor:
+    live = get_latest_sensor_data()
+    if live.get("updated_at"):
+        sensor_desc = f"Current Farm Vitals (Live NodeMCU ESP8266): Soil Moisture: {live.get('soil_moisture_pct')}%, Temp: {live.get('temperature_c')}°C, Humidity: {live.get('humidity_pct')}%, Pump: {live.get('pump_status', 'off')}."
+    elif sensor:
         sensor_desc = f"Current Farm Vitals: Soil Moisture: {sensor.get('soilMoisture', 42)}%, Temp: {sensor.get('temperature', 28)}°C, Watering: {sensor.get('isWatering', False)}."
+    else:
+        sensor_desc = ""
 
     sys_prompt = f"""You are Harvex AI Assistant, an expert agricultural advisor for Indian farmers.
 {farm_desc}
@@ -956,15 +1124,21 @@ async def voice_query(payload: VoiceQueryRequest):
         language_label = "English"
 
     # 2. Fetch sensor, disease, weather and location context
-    try:
-        latest = database.get_latest_sensor_reading(payload.device_id)
-    except Exception:
-        latest = {}
-
-    soil_moisture_pct = float(latest.get("soil_moisture_pct", 42.0))
-    temperature_c = float(latest.get("temperature_c", 28.5))
-    humidity_pct = float(latest.get("humidity_pct", 61.0))
-    pump_status = str(latest.get("pump_status", "off"))
+    live = get_latest_sensor_data()
+    if live.get("updated_at"):
+        soil_moisture_pct = float(live.get("soil_moisture_pct", 50.0))
+        temperature_c = float(live.get("temperature_c", 24.0))
+        humidity_pct = float(live.get("humidity_pct", 68.0))
+        pump_status = str(live.get("pump_status", "off"))
+    else:
+        try:
+            latest = database.get_latest_sensor_reading(payload.device_id)
+        except Exception:
+            latest = {}
+        soil_moisture_pct = float(latest.get("soil_moisture_pct", 42.0))
+        temperature_c = float(latest.get("temperature_c", 28.5))
+        humidity_pct = float(latest.get("humidity_pct", 61.0))
+        pump_status = str(latest.get("pump_status", "off"))
 
     # Disease detection
     try:
@@ -1087,3 +1261,74 @@ No bullet points, no headers, no markdown in the response text.
         response_audio_base64=audio_b64,
         action_taken=action_taken
     )
+
+
+@router.post(
+    "/sarvam/stt",
+    summary="Direct Sarvam AI Speech-to-Text transcription"
+)
+async def sarvam_stt(
+    file: UploadFile = File(..., description="Audio recording file (webm, wav, etc.)"),
+    language: str = Form(default="hi-IN", description="Language code")
+):
+    try:
+        audio_bytes = await file.read()
+        if not audio_bytes:
+            return {"transcript": "", "language": language}
+        fname = file.filename or "voice_input.webm"
+        ctype = file.content_type or "audio/webm"
+        transcript = await sarvam.speech_to_text(
+            file_bytes=audio_bytes,
+            language_code=language,
+            filename=fname,
+            content_type=ctype
+        )
+        return {"transcript": transcript, "language": language}
+    except Exception as e:
+        logger.error(f"Error during Sarvam STT: {e}")
+        return {"transcript": "", "error": str(e), "language": language}
+
+
+@router.post(
+    "/sarvam/voice",
+    summary="Direct Sarvam AI voice processing (STT + Gemini agronomic reply + TTS audio)"
+)
+async def sarvam_voice(
+    file: UploadFile = File(..., description="Audio recording file (webm, wav, etc.)"),
+    language: str = Form(default="hi-IN", description="Language code"),
+    device_id: str = Form(default="harvex-node-1", description="Device ID")
+):
+    try:
+        audio_bytes = await file.read()
+        if not audio_bytes:
+            return {"transcript": "", "response_text": "", "response_audio_base64": None}
+
+        fname = file.filename or "voice_input.webm"
+        ctype = file.content_type or "audio/webm"
+        transcript = await sarvam.speech_to_text(
+            file_bytes=audio_bytes,
+            language_code=language,
+            filename=fname,
+            content_type=ctype
+        )
+        logger.info(f"[sarvam/voice] Transcribed audio ({len(audio_bytes)} bytes, {ctype}) -> '{transcript}'")
+        if not transcript.strip():
+            logger.warning("[sarvam/voice] Transcribed audio yielded empty transcript")
+            return {"transcript": "", "response_text": "", "response_audio_base64": None}
+
+        query_payload = VoiceQueryRequest(
+            device_id=device_id,
+            transcript=transcript,
+            language=language
+        )
+        result = await voice_query(query_payload)
+        return {
+            "transcript": transcript,
+            "response_text": result.response_text,
+            "response_audio_base64": result.response_audio_base64
+        }
+    except Exception as e:
+        logger.error(f"Error during Sarvam Voice: {e}")
+        return {"transcript": "", "error": str(e), "response_text": "", "response_audio_base64": None}
+
+

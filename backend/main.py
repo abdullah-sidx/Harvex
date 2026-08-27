@@ -37,6 +37,16 @@ logger = logging.getLogger("harvex.main")
 
 import database
 from model import classifier
+from telemetry_state import (
+    latest_sensor_data,
+    sensor_data,
+    pending_pump_command,
+    get_latest_sensor_data,
+    update_latest_sensor_data,
+    get_pending_pump_command,
+    set_pending_pump_command,
+)
+from schemas import SensorDataPayload, SensorDataResponse
 from routes import router as api_router
 
 
@@ -114,6 +124,19 @@ async def root():
         "status": "online",
         "docs_url": "/docs"
     }
+
+
+# Direct root-level aliases for ESP32 / Arduino microcontrollers posting to /sensor-data
+@app.get("/sensor-data", tags=["Hardware Telemetry"], include_in_schema=False)
+async def get_sensor_data_root():
+    from routes import get_sensor_data_endpoint
+    return await get_sensor_data_endpoint()
+
+
+@app.post("/sensor-data", response_model=SensorDataResponse, tags=["Hardware Telemetry"], include_in_schema=False)
+async def post_sensor_data_root(payload: SensorDataPayload):
+    from routes import post_sensor_data
+    return await post_sensor_data(payload)
 
 
 if __name__ == "__main__":

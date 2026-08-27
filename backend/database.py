@@ -61,6 +61,17 @@ def init_db() -> None:
     except sqlite3.OperationalError:
         pass
 
+    # Table: Irrigation pump operations history
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pump_history (
+            id TEXT PRIMARY KEY,
+            timestamp TEXT NOT NULL,
+            action TEXT NOT NULL,
+            triggered_by TEXT NOT NULL,
+            duration_seconds INTEGER NOT NULL
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -238,3 +249,46 @@ def get_sensor_history(device_id: str = "harvex-node-1", limit: int = 50) -> Lis
         }
         for r in rows
     ]
+
+
+def add_pump_history(
+    id: str,
+    timestamp: str,
+    action: str,
+    triggered_by: str,
+    duration_seconds: int = 30
+) -> None:
+    """Store pump operation event in history table."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO pump_history (id, timestamp, action, triggered_by, duration_seconds)
+        VALUES (?, ?, ?, ?, ?)
+    """, (id, timestamp, action.upper(), triggered_by.upper(), duration_seconds))
+    conn.commit()
+    conn.close()
+
+
+def get_pump_history(limit: int = 50) -> List[Dict[str, Any]]:
+    """Retrieve list of past irrigation events sorted by newest first."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, timestamp, action, triggered_by, duration_seconds
+        FROM pump_history
+        ORDER BY timestamp DESC
+        LIMIT ?
+    """, (limit,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [
+        {
+            "id": row["id"],
+            "timestamp": row["timestamp"],
+            "action": row["action"],
+            "triggered_by": row["triggered_by"],
+            "duration_seconds": row["duration_seconds"],
+        }
+        for row in rows
+    ]
+

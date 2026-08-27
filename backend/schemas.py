@@ -1,32 +1,94 @@
 from typing import Optional, Literal, List, Dict, Any
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class SensorDataPayload(BaseModel):
-    """Payload sent by ESP32 field nodes to report telemetry."""
-    device_id: str = Field(..., min_length=1, description="Unique identifier for the field node, e.g., 'harvex-node-1'")
-    timestamp: str = Field(..., min_length=1, description="ISO 8601 timestamp of measurement")
-    soil_moisture_pct: float = Field(..., ge=0.0, le=100.0, description="Volumetric soil moisture percentage (0-100)")
-    temperature_c: float = Field(..., description="Ambient temperature in degrees Celsius")
-    humidity_pct: float = Field(..., ge=0.0, le=100.0, description="Relative humidity percentage (0-100)")
-    pump_status: str = Field(..., description="Current status of the water pump ('on' or 'off')")
+    """Payload sent by ESP32 / Arduino field nodes to report telemetry."""
+    device_id: Optional[str] = Field(default="harvex-node-1", description="Unique identifier for the field node")
+    timestamp: Optional[str] = Field(default=None, description="ISO 8601 timestamp of measurement")
 
-    @field_validator("pump_status")
-    @classmethod
-    def validate_pump_status(cls, v: str) -> str:
-        v_clean = v.strip().lower()
-        if v_clean not in {"on", "off"}:
+    # Support both 'soil_moisture' and 'soil_moisture_pct'
+    soil_moisture: Optional[float] = Field(default=None, description="Volumetric soil moisture percentage")
+    soil_moisture_pct: Optional[float] = Field(default=None, description="Volumetric soil moisture percentage")
+
+    # Support both 'temperature' and 'temperature_c'
+    temperature: Optional[float] = Field(default=None, description="Ambient temperature in degrees Celsius")
+    temperature_c: Optional[float] = Field(default=None, description="Ambient temperature in degrees Celsius")
+
+    # Support both 'humidity' and 'humidity_pct'
+    humidity: Optional[float] = Field(default=None, description="Relative humidity percentage")
+    humidity_pct: Optional[float] = Field(default=None, description="Relative humidity percentage")
+
+    pump_status: Optional[str] = Field(default="off", description="Current status of the water pump ('on' or 'off')")
+
+    @model_validator(mode="after")
+    def validate_telemetry_fields(self):
+        # Resolve soil moisture
+        sm = self.soil_moisture if self.soil_moisture is not None else self.soil_moisture_pct
+        if sm is None:
+            raise ValueError("Field 'soil_moisture' or 'soil_moisture_pct' is required")
+        if not (0.0 <= sm <= 100.0):
+            raise ValueError("Soil moisture must be between 0.0 and 100.0")
+
+        # Resolve temperature
+        tc = self.temperature if self.temperature is not None else self.temperature_c
+        if tc is None:
+            raise ValueError("Field 'temperature' or 'temperature_c' is required")
+
+        # Resolve humidity
+        hp = self.humidity if self.humidity is not None else self.humidity_pct
+        if hp is None:
+            raise ValueError("Field 'humidity' or 'humidity_pct' is required")
+        if not (0.0 <= hp <= 100.0):
+            raise ValueError("Humidity must be between 0.0 and 100.0")
+
+        # Resolve pump status
+        ps = (self.pump_status or "off").strip().lower()
+        if ps not in {"on", "off"}:
             raise ValueError("pump_status must be either 'on' or 'off'")
-        return v_clean
+
+        # Normalize attributes
+        object.__setattr__(self, "soil_moisture", sm)
+        object.__setattr__(self, "soil_moisture_pct", sm)
+        object.__setattr__(self, "temperature", tc)
+        object.__setattr__(self, "temperature_c", tc)
+        object.__setattr__(self, "humidity", hp)
+        object.__setattr__(self, "humidity_pct", hp)
+        object.__setattr__(self, "pump_status", ps)
+        return self
 
 
 class SensorDataResponse(BaseModel):
     """Response returned upon successfully receiving sensor telemetry."""
-    status: str = "received"
+    status: str = "success"
+
+
+class PumpToggleRequest(BaseModel):
+    """Payload sent by web frontend to toggle water pump."""
+    state: Literal["on", "off"]
+    duration_seconds: Optional[int] = 30
+    triggered_by: Optional[str] = "WEBSITE"
+
+
+class PumpToggleResponse(BaseModel):
+    """Response returned after processing pump toggle command."""
+    status: str = "success"
+    pump_command: str
+    display_message: str
+    history_entry: Optional[Dict[str, Any]] = None
+
+
+class PumpHistoryItem(BaseModel):
+    """Model representing an irrigation event."""
+    id: str
+    timestamp: str
+    action: str
+    triggered_by: str
+    duration_seconds: int
 
 
 class PumpCommandResponse(BaseModel):
-    """Command response polled by ESP32 node to control pump relay and LCD display."""
+    """Command response polled by ESP32 / NodeMCU node to control pump relay and LCD display."""
     pump_command: Literal["on", "off"]
     max_runtime_seconds: int
     display_message: str
