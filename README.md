@@ -672,3 +672,19 @@ The FastAPI backend has permissive CORS enabled for development. If you see CORS
 
 *Harvex — built in 30 hours by Team Goldsmiths for Smart India Hackathon 2026.*
 *Code by Code, Till its Gold.*
+
+---
+
+## License
+
+Copyright © 2026 Goldsmiths (SIH26180). All rights reserved.
+
+This project and all its contents — including source code, design, documentation,
+and any associated assets — are the intellectual property of Team Goldsmiths.
+
+No part of this project may be copied, modified, distributed, sublicensed, or used
+for any purpose (commercial or otherwise) without explicit written permission from
+the author.
+
+For inquiries or collaboration requests, contact the team through the SIH 2026
+submission portal or raise an issue in this repository.
