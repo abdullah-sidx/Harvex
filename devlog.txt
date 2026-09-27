@@ -1,0 +1,29 @@
+
+> harvex@0.0.0 dev
+> tsx server.ts
+
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+Harvex server running on http://localhost:3000
+Error: [31m  Failed to scan for dependencies from entries:
+  C:/Users/shiba/Documents/Default Project/Harvex/index.html
+
+  [39m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mUnexpected "catch"[0m
+
+    src/components/LeafCheckView.tsx:163:6:
+[37m      163 │     } [32mcatch[37m (err: any) {
+          ╵       [32m~~~~~[0m
+
+
+    at failureErrorWithLog (C:\Users\shiba\Documents\Default Project\Harvex\node_modules\esbuild\lib\main.js:1467:15)
+    at C:\Users\shiba\Documents\Default Project\Harvex\node_modules\esbuild\lib\main.js:926:25
+    at runOnEndCallbacks (C:\Users\shiba\Documents\Default Project\Harvex\node_modules\esbuild\lib\main.js:1307:45)
+    at buildResponseToResult (C:\Users\shiba\Documents\Default Project\Harvex\node_modules\esbuild\lib\main.js:924:7)
+    at C:\Users\shiba\Documents\Default Project\Harvex\node_modules\esbuild\lib\main.js:936:9
+    at new Promise (<anonymous>)
+    at requestCallbacks.on-end (C:\Users\shiba\Documents\Default Project\Harvex\node_modules\esbuild\lib\main.js:935:54)
+    at handleRequest (C:\Users\shiba\Documents\Default Project\Harvex\node_modules\esbuild\lib\main.js:628:17)
+    at handleIncomingPacket (C:\Users\shiba\Documents\Default Project\Harvex\node_modules\esbuild\lib\main.js:653:7)
+    at Socket.readFromStdout (C:\Users\shiba\Documents\Default Project\Harvex\node_modules\esbuild\lib\main.js:581:7)
+[2m11:41:05 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32m✨ new dependencies optimized: [33mreact-dom/client[32m[39m
+[2m11:41:05 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32m✨ optimized dependencies changed. reloading[39m
+[2m11:41:49 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mbackend/security.py[22m

@@ -16,7 +16,7 @@ export const WeatherModal: React.FC<WeatherModalProps> = ({
   if (!isOpen) return null;
 
   const isHi = language === 'hi';
-  const t = TRANSLATIONS[language];
+  const _t = TRANSLATIONS[language]; void _t;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-xs animate-fadeIn">

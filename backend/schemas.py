@@ -66,7 +66,7 @@ class SensorDataResponse(BaseModel):
 class PumpToggleRequest(BaseModel):
     """Payload sent by web frontend to toggle water pump."""
     state: Literal["on", "off"]
-    duration_seconds: Optional[int] = 30
+    duration_seconds: Optional[int] = Field(default=30, ge=0, le=300)
     triggered_by: Optional[str] = "WEBSITE"
 
 

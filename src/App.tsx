@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Language, AppTab, SensorData, HistoryItem, LeafCheckDiagnosis, UserFarmProfile } from './types';
 import { DEFAULT_SENSOR_DATA, INITIAL_HISTORY } from './data';
 import { TopAppBar } from './components/TopAppBar';
@@ -58,40 +58,38 @@ export default function App() {
 
   // Toggle Irrigation Pump
   const handleToggleWatering = () => {
-    setSensorData((prev) => {
-      const newWateringState = !prev.isWatering;
-      const updatedMoisture = newWateringState ? Math.min(100, prev.soilMoisture + 8) : prev.soilMoisture;
+    const newWateringState = !sensorData.isWatering;
+    const updatedMoisture = newWateringState ? Math.min(100, sensorData.soilMoisture + 8) : sensorData.soilMoisture;
 
-      if (newWateringState) {
-        const newHistoryItem: HistoryItem = {
-          id: `h-${Date.now()}`,
-          title: 'Manual Irrigation Started',
-          titleHi: 'मैन्युअल सिंचाई प्रारंभ',
-          category: 'irrigation',
-          subtitle: 'Pump active • Sector 4 drip valve',
-          subtitleHi: 'पंप चालू • सेक्टर 4 ड्रिप वाल्व',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          dateGroup: 'today',
-          icon: 'water_drop',
-          iconBgClass: 'bg-[#1b4332] text-[#86af99]',
-          iconColorClass: 'text-[#86af99]',
-          trendText: 'Moisture +8%',
-          trendTextHi: 'नमी +8%',
-          trendIcon: 'trending_up',
-          trendType: 'positive',
-        };
+    setSensorData((prev) => ({
+      ...prev,
+      isWatering: newWateringState,
+      soilMoisture: updatedMoisture,
+      lastWateredTime: newWateringState ? 'Just now' : prev.lastWateredTime,
+      lastWateredTimeHi: newWateringState ? 'अभी-अभी' : prev.lastWateredTimeHi,
+    }));
 
-        setHistoryItems((prevHistory) => [newHistoryItem, ...prevHistory]);
-      }
-
-      return {
-        ...prev,
-        isWatering: newWateringState,
-        soilMoisture: updatedMoisture,
-        lastWateredTime: newWateringState ? 'Just now' : prev.lastWateredTime,
-        lastWateredTimeHi: newWateringState ? 'अभी-अभी' : prev.lastWateredTimeHi,
+    if (newWateringState) {
+      const newHistoryItem: HistoryItem = {
+        id: `h-${Date.now()}`,
+        title: 'Manual Irrigation Started',
+        titleHi: 'मैन्युअल सिंचाई प्रारंभ',
+        category: 'irrigation',
+        subtitle: 'Pump active • Sector 4 drip valve',
+        subtitleHi: 'पंप चालू • सेक्टर 4 ड्रिप वाल्व',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        dateGroup: 'today',
+        icon: 'water_drop',
+        iconBgClass: 'bg-[#1b4332] text-[#86af99]',
+        iconColorClass: 'text-[#86af99]',
+        trendText: 'Moisture +8%',
+        trendTextHi: 'नमी +8%',
+        trendIcon: 'trending_up',
+        trendType: 'positive',
       };
-    });
+
+      setHistoryItems((prevHistory) => [newHistoryItem, ...prevHistory]);
+    }
   };
 
   // Add Leaf Diagnosis to history
@@ -120,11 +118,23 @@ export default function App() {
   const handleOnboardingComplete = (profile: UserFarmProfile) => {
     setFarmProfile(profile);
     setIsOnboardingOpen(false);
+    try { localStorage.setItem('user_farm_profile', JSON.stringify(profile)); } catch {}
   };
 
   const handleProfileUpdate = (profile: UserFarmProfile) => {
     setFarmProfile(profile);
+    try { localStorage.setItem('user_farm_profile', JSON.stringify(profile)); } catch {}
   };
+
+  // Sync historyItems to localStorage when it changes
+  useEffect(() => {
+    try { localStorage.setItem('harvex_history', JSON.stringify(historyItems)); } catch {}
+  }, [historyItems]);
+
+  // Side-effect: sync sensorData.isWatering to localStorage
+  useEffect(() => {
+    try { localStorage.setItem('harvex_sensor_data', JSON.stringify(sensorData)); } catch {}
+  }, [sensorData.isWatering]);
 
   return (
     <div className="min-h-screen bg-[#fcf9f8] text-[#1c1b1b] flex flex-col font-sans selection:bg-[#c1ecd4] selection:text-[#002114]">

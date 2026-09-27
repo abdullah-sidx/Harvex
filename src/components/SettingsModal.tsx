@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Language, UserFarmProfile } from '../types';
-import { TRANSLATIONS, INDIAN_STATES_DISTRICTS, SOIL_TYPES, IRRIGATION_TYPES } from '../data';
+import { INDIAN_STATES_DISTRICTS, SOIL_TYPES, IRRIGATION_TYPES } from '../data';
 
 interface SettingsModalProps {
   language: Language;

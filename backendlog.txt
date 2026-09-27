@@ -1,0 +1,20 @@
+INFO:     Started server process [5436]
+INFO:     Waiting for application startup.
+2026-09-26 23:43:31,348 [INFO] harvex.main: Initializing Harvex backend system...
+2026-09-26 23:43:31,402 [INFO] harvex.main: SQLite database initialized successfully.
+2026-09-26 23:43:31,403 [INFO] harvex.model: Loading PlantVillage ViT fallback model: kimcomehome/plantvillage-vit-leaf-disease onto cpu...
+2026-09-26 23:43:31,768 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/kimcomehome/plantvillage-vit-leaf-disease/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-09-26 23:43:31,769 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-09-26 23:43:32,052 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/kimcomehome/plantvillage-vit-leaf-disease/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-26 23:43:32,078 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/kimcomehome/plantvillage-vit-leaf-disease/9328047a2fa94eb09a5dc7a2a0644a82e8a89499/preprocessor_config.json?%2Fkimcomehome%2Fplantvillage-vit-leaf-disease%2Fresolve%2Fmain%2Fpreprocessor_config.json=&etag=%227d16e34b5a81a2e9ee818427bf493ffb6832c3df%22 "HTTP/1.1 200 OK"
+2026-09-26 23:43:32,348 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/kimcomehome/plantvillage-vit-leaf-disease/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-09-26 23:43:32,659 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/kimcomehome/plantvillage-vit-leaf-disease/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-26 23:43:32,686 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/kimcomehome/plantvillage-vit-leaf-disease/9328047a2fa94eb09a5dc7a2a0644a82e8a89499/preprocessor_config.json?%2Fkimcomehome%2Fplantvillage-vit-leaf-disease%2Fresolve%2Fmain%2Fpreprocessor_config.json=&etag=%227d16e34b5a81a2e9ee818427bf493ffb6832c3df%22 "HTTP/1.1 200 OK"
+2026-09-26 23:43:32,963 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/kimcomehome/plantvillage-vit-leaf-disease/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-26 23:43:33,024 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/kimcomehome/plantvillage-vit-leaf-disease/9328047a2fa94eb09a5dc7a2a0644a82e8a89499/config.json?%2Fkimcomehome%2Fplantvillage-vit-leaf-disease%2Fresolve%2Fmain%2Fconfig.json=&etag=%22cefa7b001a412fdf02011a671297020afc20de32%22 "HTTP/1.1 200 OK"
+2026-09-26 23:43:33,374 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/kimcomehome/plantvillage-vit-leaf-disease/resolve/main/model.safetensors "HTTP/1.1 302 Found"
+C:\Users\shiba\AppData\Local\Programs\Python\Python314\Lib\site-packages\huggingface_hub\file_download.py:149: UserWarning: `huggingface_hub` cache-system uses symlinks by default to efficiently store duplicated files but your machine does not support them in C:\Users\shiba\.cache\huggingface\hub. Caching files will still work but in a degraded version that might require more space on your disk. This warning can be disabled by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For more details, see https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations.
+To support symlinks on Windows, you either need to activate Developer Mode or to run Python as an administrator. In order to activate developer mode, see this article: https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development
+  warnings.warn(message)
+2026-09-26 23:43:33,658 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/kimcomehome/plantvillage-vit-leaf-disease/xet-read-token/9328047a2fa94eb09a5dc7a2a0644a82e8a89499 "HTTP/1.1 200 OK"

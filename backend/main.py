@@ -3,7 +3,6 @@ import os
 import sys
 from contextlib import asynccontextmanager
 
-# Ensure backend directory is on sys.path regardless of execution working directory
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
@@ -21,13 +20,10 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.encoders import jsonable_encoder
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -48,30 +44,22 @@ from telemetry_state import (
 )
 from schemas import SensorDataPayload, SensorDataResponse
 from routes import router as api_router
-
+from security import rate_limiter, get_client_ip, validate_image_file, MAX_FILE_SIZE_BYTES, SecurityHeadersMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup and shutdown lifespan handler."""
     logger.info("Initializing Harvex backend system...")
-    
-    # 1. Initialize SQLite tables
     database.init_db()
     logger.info("SQLite database initialized successfully.")
-
-    # 2. Pre-load Vision Transformer disease classification model
     try:
         classifier.load()
         logger.info("Disease classification model loaded into memory.")
     except Exception as e:
         logger.error(f"Error loading disease classification model: {e}")
-
     logger.info("Harvex backend ready to accept requests.")
     yield
     logger.info("Harvex backend shutting down.")
 
-
-# Create FastAPI application
 app = FastAPI(
     title="Harvex — AI Smart Farming Assistant API",
     description="Backend API for Harvex ESP32 telemetry, weather fusion, disease detection, and live farm vitals.",
@@ -79,19 +67,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Enable CORS for frontend and external clients
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.add_middleware(SecurityHeadersMiddleware)
 
-from fastapi.encoders import jsonable_encoder
-
-# Custom handler: Reject malformed requests with a clear HTTP 400 error as per requirement 6
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     error_messages = []
@@ -99,45 +84,37 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         loc = " -> ".join(str(l) for l in err.get("loc", []))
         msg = err.get("msg", "Invalid value")
         error_messages.append(f"{loc}: {msg}")
-    
     error_detail = "; ".join(error_messages)
     logger.warning(f"Validation error on {request.url.path}: {error_detail}")
-    
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
-        content={
-            "detail": f"Malformed request payload: {error_detail}",
-            "errors": jsonable_encoder(exc.errors())
-        }
+        content={"detail": "Invalid request. Please check your input.", "errors": []}
     )
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    request_id = str(__import__('uuid').uuid4().hex[:8])
+    logger.error(f"[{request_id}] Unhandled error on {request.url.path}: {repr(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "An internal server error occurred. Please try again later.", "request_id": request_id}
+    )
 
-# Include API Router under /api prefix
 app.include_router(api_router)
-
 
 @app.get("/", tags=["Health Check"])
 async def root():
-    return {
-        "project": "Harvex — AI Smart Farming Assistant (SIH26180)",
-        "team": "Goldsmiths",
-        "status": "online",
-        "docs_url": "/docs"
-    }
+    return {"project": "Harvex — AI Smart Farming Assistant (SIH26180)", "team": "Goldsmiths", "status": "online", "docs_url": "/docs"}
 
-
-# Direct root-level aliases for ESP32 / Arduino microcontrollers posting to /sensor-data
 @app.get("/sensor-data", tags=["Hardware Telemetry"], include_in_schema=False)
 async def get_sensor_data_root():
     from routes import get_sensor_data_endpoint
     return await get_sensor_data_endpoint()
 
-
 @app.post("/sensor-data", response_model=SensorDataResponse, tags=["Hardware Telemetry"], include_in_schema=False)
 async def post_sensor_data_root(payload: SensorDataPayload):
     from routes import post_sensor_data
     return await post_sensor_data(payload)
-
 
 if __name__ == "__main__":
     import uvicorn

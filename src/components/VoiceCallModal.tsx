@@ -341,40 +341,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
         }
       }
 
-      // ── Tier 3: Direct Browser-to-Sarvam AI STT API with Auto-Detection ──
-      const sarvamKey =
-        (import.meta as any).env?.VITE_SARVAM_API_KEY ||
-        'sk_r62icrot_JRmaNbLKKuGbzseNG0IycixQ';
-
-      if (sarvamKey) {
-        try {
-          const directForm = new FormData();
-          directForm.append('file', cleanBlob, 'user_voice.webm');
-          directForm.append('language_code', 'unknown');
-          directForm.append('model', 'saarika:v2.5');
-
-          const directRes = await fetch('https://api.sarvam.ai/speech-to-text', {
-            method: 'POST',
-            headers: {
-              'api-subscription-key': sarvamKey,
-            },
-            body: directForm,
-            signal: controller.signal,
-          });
-
-          if (directRes.ok) {
-            const directData = await directRes.json();
-            const transcript = (directData.transcript || '').trim();
-            if (transcript) {
-              await handleSendToSarvam(transcript);
-              return;
-            }
-          }
-        } catch (directErr) {
-          console.warn('[DirectSarvam] Fallback attempt failed:', directErr);
-        }
-      }
-
+      // ── Tier 3: Fallback - No direct browser-to-Sarvam call ──
       throw new Error('Sarvam voice transcription returned no speech content');
     } catch (err: any) {
       if (err?.name === 'AbortError' || isStoppingRef.current) return;
@@ -771,8 +738,8 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
                 <div
                   className={`max-w-[82%] px-4 py-3 rounded-2xl shadow-md text-sm leading-relaxed ${
                     isUser
-                      ? 'bg-emerald-600 text-white rounded-br-xs'
-                      : 'bg-[#1b4332]/90 border border-emerald-500/20 text-emerald-50 rounded-bl-xs'
+                      ? 'bg-emerald-600 text-white rounded-br'
+                      : 'bg-[#1b4332]/90 border border-emerald-500/20 text-emerald-50 rounded-bl'
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{msg.text}</p>
@@ -800,7 +767,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
           {/* Assistant Typing / Processing Indicator */}
           {modalState === 'PROCESSING' && (
             <div className="flex items-start">
-              <div className="bg-[#1b4332]/80 border border-emerald-500/20 px-4 py-2.5 rounded-2xl rounded-bl-xs flex items-center gap-2 text-xs text-emerald-300">
+              <div className="bg-[#1b4332]/80 border border-emerald-500/20 px-4 py-2.5 rounded-2xl rounded-bl flex items-center gap-2 text-xs text-emerald-300">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce"></span>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.2s]"></span>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.4s]"></span>

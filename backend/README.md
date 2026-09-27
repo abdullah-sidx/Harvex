@@ -214,4 +214,4 @@ curl -X GET "http://localhost:8000/api/status?device_id=harvex-node-1&lang=hi"
 ```bash
 pytest backend/test_backend.py -v
 ```
-All 15 contract, validation, threshold, Sarvam AI TTS/STT, and integration tests verify the system end-to-end.
+All 22 contract, validation, threshold, Sarvam AI TTS/STT, and integration tests verify the system end-to-end.
