@@ -259,7 +259,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
 
       {/* Voice Assistant Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3 md:p-4 backdrop-blur-xs animate-fadeIn">
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3 md:p-4 backdrop-blur-sm animate-fadeIn">
           <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-2xl w-full max-w-lg shadow-2xl flex flex-col h-[580px] overflow-hidden">
             {/* Header with Language Toggle */}
             <div className="p-4 border-b border-[#c1c8c2] flex items-center justify-between bg-[#fcf9f8]">
@@ -286,7 +286,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                     onClick={() => setModalLanguage('hi')}
                     className={`px-2 py-0.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       isHi
-                        ? 'bg-[#1b4332] text-[#c1ecd4] shadow-xs'
+                        ? 'bg-[#1b4332] text-[#c1ecd4] shadow-sm'
                         : 'text-[#414844] hover:text-[#1c1b1b]'
                     }`}
                   >
@@ -296,7 +296,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                     onClick={() => setModalLanguage('en')}
                     className={`px-2 py-0.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       !isHi
-                        ? 'bg-[#1b4332] text-[#c1ecd4] shadow-xs'
+                        ? 'bg-[#1b4332] text-[#c1ecd4] shadow-sm'
                         : 'text-[#414844] hover:text-[#1c1b1b]'
                     }`}
                   >
@@ -398,7 +398,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder={isHi ? 'बोलें या टाइप करें...' : 'Speak or type farming query...'}
-                className="flex-1 bg-[#ffffff] border border-[#c1c8c2] rounded-xl px-3.5 py-2 text-xs md:text-sm text-[#1c1b1b] focus:border-[#012d1d] focus:outline-hidden"
+                className="flex-1 bg-[#ffffff] border border-[#c1c8c2] rounded-xl px-3.5 py-2 text-xs md:text-sm text-[#1c1b1b] focus:border-[#012d1d] focus:outline-none"
               />
 
               <button

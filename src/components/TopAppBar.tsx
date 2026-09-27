@@ -89,7 +89,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
         <button
           onClick={onLanguageToggle}
           title={language === 'en' ? 'Switch to Hindi' : 'Switch to English'}
-          className="flex items-center gap-1 px-3 py-1.5 bg-[#f0edec] hover:bg-[#ebe7e7] border border-[#c1c8c2] rounded-full text-xs font-bold text-[#1c1b1b] transition-all cursor-pointer shadow-xs active:scale-95"
+          className="flex items-center gap-1 px-3 py-1.5 bg-[#f0edec] hover:bg-[#ebe7e7] border border-[#c1c8c2] rounded-full text-xs font-bold text-[#1c1b1b] transition-all cursor-pointer shadow-sm active:scale-95"
         >
           <span className="material-symbols-outlined text-[16px] text-[#012d1d]">language</span>
           <span className="uppercase tracking-wider">{language === 'en' ? 'EN' : 'HI'}</span>

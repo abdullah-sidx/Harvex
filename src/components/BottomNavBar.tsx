@@ -16,14 +16,14 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   const t = TRANSLATIONS[language];
 
   return (
-    <nav className="fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-2 py-2 bg-[#ffffff] border-t border-[#c1c8c2] md:hidden shadow-xs">
+    <nav className="fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-2 py-2 bg-[#ffffff] border-t border-[#c1c8c2] md:hidden shadow-sm">
       {/* Dashboard Tab */}
       <button
         onClick={() => onTabChange('dashboard')}
         className={`flex flex-col items-center justify-center transition-all duration-150 ease-in-out cursor-pointer ${
           activeTab === 'dashboard'
-            ? 'bg-[#1b4332] text-[#86af99] rounded-full px-4 py-1.5 opacity-90 scale-95 shadow-xs'
-            : 'text-[#414844] p-1.5 hover:bg-[#ebe7e7] rounded-xl w-16'
+            ? 'bg-[#1b4332] text-[#86af99] rounded-full px-4 py-1.5 opacity-90 shadow-sm'
+            : 'text-[#414844] px-4 py-1.5 hover:bg-[#ebe7e7] rounded-full w-auto'
         }`}
       >
         <span
@@ -43,8 +43,8 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
         onClick={() => onTabChange('leaf-check')}
         className={`flex flex-col items-center justify-center transition-all duration-150 ease-in-out cursor-pointer ${
           activeTab === 'leaf-check'
-            ? 'bg-[#1b4332] text-[#86af99] rounded-full px-4 py-1.5 opacity-90 scale-95 shadow-xs'
-            : 'text-[#414844] p-1.5 hover:bg-[#ebe7e7] rounded-xl w-16'
+            ? 'bg-[#1b4332] text-[#86af99] rounded-full px-4 py-1.5 opacity-90 shadow-sm'
+            : 'text-[#414844] px-4 py-1.5 hover:bg-[#ebe7e7] rounded-full w-auto'
         }`}
       >
         <span
@@ -64,8 +64,8 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
         onClick={() => onTabChange('chat')}
         className={`flex flex-col items-center justify-center transition-all duration-150 ease-in-out cursor-pointer ${
           activeTab === 'chat'
-            ? 'bg-[#1b4332] text-[#86af99] rounded-full px-4 py-1.5 opacity-90 scale-95 shadow-xs'
-            : 'text-[#414844] p-1.5 hover:bg-[#ebe7e7] rounded-xl w-16'
+            ? 'bg-[#1b4332] text-[#86af99] rounded-full px-4 py-1.5 opacity-90 shadow-sm'
+            : 'text-[#414844] px-4 py-1.5 hover:bg-[#ebe7e7] rounded-full w-auto'
         }`}
       >
         <span
@@ -85,8 +85,8 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
         onClick={() => onTabChange('history')}
         className={`flex flex-col items-center justify-center transition-all duration-150 ease-in-out cursor-pointer ${
           activeTab === 'history'
-            ? 'bg-[#1b4332] text-[#86af99] rounded-full px-4 py-1.5 opacity-90 scale-95 shadow-xs'
-            : 'text-[#414844] p-1.5 hover:bg-[#ebe7e7] rounded-xl w-16'
+            ? 'bg-[#1b4332] text-[#86af99] rounded-full px-4 py-1.5 opacity-90 shadow-sm'
+            : 'text-[#414844] px-4 py-1.5 hover:bg-[#ebe7e7] rounded-full w-auto'
         }`}
       >
         <span

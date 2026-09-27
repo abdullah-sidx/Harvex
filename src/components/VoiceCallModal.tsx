@@ -844,7 +844,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
                   ? 'bg-emerald-950 text-emerald-600 cursor-not-allowed opacity-75'
                   : modalState === 'SPEAKING'
                   ? 'bg-emerald-700 hover:bg-emerald-600 text-white shadow-emerald-700/50'
-                  : 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-emerald-900/60'
+                  : 'bg-emerald-600 hover:bg-emerald-500 active:scale-90 text-white shadow-emerald-900/60'
               }`}
               title={
                 modalState === 'LISTENING'

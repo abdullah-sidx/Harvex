@@ -19,7 +19,7 @@ export const WeatherModal: React.FC<WeatherModalProps> = ({
   const _t = TRANSLATIONS[language]; void _t;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-xs animate-fadeIn">
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">

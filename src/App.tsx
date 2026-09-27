@@ -190,7 +190,7 @@ export default function App() {
           onClick={() => setIsVoiceCallOpen(true)}
           aria-label="Hands-free Voice Call"
           title={language === 'hi' ? 'हैंड्स-फ्री वॉयस कॉल शुरू करें' : 'Start Hands-Free Voice Call'}
-          className="group relative flex items-center justify-center w-16 h-16 rounded-full bg-[#1b4332] hover:bg-[#012d1d] active:scale-95 text-[#c1ecd4] shadow-2xl transition-all cursor-pointer border-2 border-emerald-400/40 hover:border-emerald-300"
+          className="group relative flex items-center justify-center w-16 h-16 rounded-full bg-[#1b4332] hover:bg-[#012d1d] active:scale-90 text-[#c1ecd4] shadow-2xl transition-all cursor-pointer border-2 border-emerald-400/40 hover:border-emerald-300"
         >
           {/* Animated Pulsing Ring */}
           <span className="absolute -inset-1 rounded-full bg-emerald-500/25 animate-ping group-hover:bg-emerald-500/40"></span>

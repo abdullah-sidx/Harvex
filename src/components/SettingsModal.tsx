@@ -100,7 +100,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <select
               value={state}
               onChange={handleStateChange}
-              className="w-full h-11 px-3.5 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-hidden transition-all shadow-xs"
+              className="w-full h-11 px-3.5 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-none transition-all shadow-sm"
             >
               {Object.keys(INDIAN_STATES_DISTRICTS).map((st) => (
                 <option key={st} value={st}>
@@ -118,7 +118,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <select
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
-              className="w-full h-11 px-3.5 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-hidden transition-all shadow-xs"
+              className="w-full h-11 px-3.5 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-none transition-all shadow-sm"
             >
               {availableDistricts.map((d) => (
                 <option key={d} value={d}>
@@ -136,7 +136,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <select
               value={soilType}
               onChange={(e) => setSoilType(e.target.value)}
-              className="w-full h-11 px-3.5 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-hidden transition-all shadow-xs"
+              className="w-full h-11 px-3.5 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-none transition-all shadow-sm"
             >
               {SOIL_TYPES.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -154,7 +154,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <select
               value={irrigation}
               onChange={(e) => setIrrigation(e.target.value)}
-              className="w-full h-11 px-3.5 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-hidden transition-all shadow-xs"
+              className="w-full h-11 px-3.5 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-none transition-all shadow-sm"
             >
               {IRRIGATION_TYPES.map((i) => (
                 <option key={i.value} value={i.value}>
@@ -175,7 +175,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
             <button
               type="submit"
-              className="flex-1 h-12 bg-[#1b4332] hover:bg-[#012d1d] text-[#c1ecd4] font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              className="flex-1 h-12 bg-[#1b4332] hover:bg-[#012d1d] text-[#c1ecd4] font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
             >
               <span className="material-symbols-outlined text-[18px]">save</span>
               <span>{isHi ? 'सहेजें' : 'Save Changes'}</span>
