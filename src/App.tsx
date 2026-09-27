@@ -185,7 +185,8 @@ export default function App() {
       </main>
 
       {/* Hands-Free Sarvam Voice Call Floating Action Button 📞 */}
-      <div className="fixed bottom-20 md:bottom-8 right-5 md:right-8 z-40">
+      {/* Lifted above the chat input bar on mobile chat tab so it never covers Send */}
+      <div className={`fixed right-5 md:right-8 z-40 ${activeTab === 'chat' ? 'bottom-44 md:bottom-8' : 'bottom-20 md:bottom-8'}`}>
         <button
           onClick={() => setIsVoiceCallOpen(true)}
           aria-label="Hands-free Voice Call"
