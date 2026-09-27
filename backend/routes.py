@@ -4,7 +4,6 @@ import sys
 import uuid
 from typing import Optional, Dict, Any, List
 import httpx
-import asyncio
 
 # Ensure backend directory is in sys.path
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -181,7 +180,7 @@ async def get_pump_command(device_id: str = Query(default="harvex-node-1", descr
         sensor_rec = database.get_latest_sensor_reading(device_id=device_id)
         soil_moisture = float(sensor_rec.get("soil_moisture_pct", 50.0))
 
-    _, rain_expected = asyncio.run(asyncio.run(weather.get_rain_forecast()))
+    _, rain_expected = await weather.get_rain_forecast()
 
     command_data = decision.compute_pump_command(
         soil_moisture_pct=soil_moisture,
@@ -404,7 +403,7 @@ async def get_status(
     sensor_data = database.get_latest_sensor_reading(device_id=device_id)
 
     # 2. Fetch live rain forecast
-    _, rain_expected = asyncio.run(weather.get_rain_forecast())
+    _, rain_expected = await weather.get_rain_forecast()
 
     # 3. Fetch latest disease detection result
     latest_disease = database.get_latest_disease_detection(device_id=device_id)
@@ -1217,7 +1216,7 @@ async def voice_query(request: Request, payload: VoiceQueryRequest):
 
     # Weather alert
     try:
-        rain_prob, rain_expected = asyncio.run(asyncio.run(weather.get_rain_forecast()))
+        rain_prob, rain_expected = await weather.get_rain_forecast()
         if rain_expected:
             weather_alert = f"Rain expected in the next 6 hours (probability {rain_prob * 100:.0f}%)"
         else:
