@@ -25,3 +25,7 @@ Thumbs.db
 assets/
 backend/harvex.db
 frontend/node_modules/
+*.txt
+*.log
+devlog.txt
+backendlog.txt
