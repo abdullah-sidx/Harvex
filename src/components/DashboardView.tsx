@@ -343,7 +343,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   isPumpActive
                     ? 'bg-[#ba1a1a] text-white hover:bg-red-700'
                     : 'bg-[#1b4332] text-[#c1ecd4] hover:bg-[#012d1d]'
-                } ${isTogglingPump ? 'opacity-75 cursor-not-allowed' : 'active:scale-95'}`}
+                } ${isTogglingPump ? 'opacity-75 cursor-not-allowed' : 'active:scale-90'}`}
               >
                 {isTogglingPump && (
                   <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>

@@ -249,7 +249,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
       <button
         onClick={() => setIsOpen(true)}
         aria-label="Voice Assistant"
-        className="fixed bottom-[88px] md:bottom-28 right-4 md:right-8 z-40 w-14 h-14 bg-[#012d1d] hover:bg-[#1b4332] text-[#ffffff] rounded-full shadow-lg flex items-center justify-center transition-all cursor-pointer group active:scale-95 border-2 border-emerald-400/30"
+        className="fixed bottom-[88px] md:bottom-28 right-4 md:right-8 z-40 w-14 h-14 bg-[#012d1d] hover:bg-[#1b4332] text-[#ffffff] rounded-full shadow-lg flex items-center justify-center transition-all cursor-pointer group active:scale-90 border-2 border-emerald-400/30"
       >
         <span className="material-symbols-outlined text-3xl">mic</span>
         <span className="absolute right-16 bg-[#e5e2e1] text-[#1c1b1b] px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity font-bold text-xs whitespace-nowrap shadow-md pointer-events-none">
