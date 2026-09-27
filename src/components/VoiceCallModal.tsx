@@ -120,6 +120,43 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
     }
   }, []);
 
+  // ── Browser-Native TTS Fallback (phone-call voice when Sarvam audio missing) ──
+  const speakReplyWithBrowserTTS = useCallback((text: string) => {
+    const clean = (text || '').trim();
+    if (!clean || isStoppingRef.current) {
+      setModalState('IDLE');
+      return;
+    }
+    try {
+      if (!('speechSynthesis' in window)) {
+        setModalState('IDLE');
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(clean);
+      const langCode = currentLanguage === 'hi' ? 'hi-IN' : 'en-IN';
+      utterance.lang = langCode;
+      utterance.rate = 0.95;
+      try {
+        const voices = window.speechSynthesis.getVoices?.() || [];
+        const match = voices.find((v) =>
+          (v.lang || '').toLowerCase().startsWith(currentLanguage === 'hi' ? 'hi' : 'en')
+        );
+        if (match) utterance.voice = match;
+      } catch {}
+      setModalState('SPEAKING');
+      utterance.onend = () => {
+        if (!isStoppingRef.current) setModalState('IDLE');
+      };
+      utterance.onerror = () => {
+        if (!isStoppingRef.current) setModalState('IDLE');
+      };
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setModalState('IDLE');
+    }
+  }, [currentLanguage]);
+
   // ── Release Microphone Stream Tracks Helper ───────────────────────────────
   const releaseMicStream = useCallback(() => {
     if (micStreamRef.current) {
@@ -215,13 +252,15 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
     };
     setMessages((prev) => [...prev.slice(-9), assistantMsg]);
 
-    // 4. Play Reply Audio ONCE Automatically
+    // 4. Play Reply Audio ONCE Automatically (browser TTS fallback = phone-call voice)
     if (replyAudioBase64 && !isStoppingRef.current) {
       playAudioBase64(replyAudioBase64);
+    } else if (replyText && !isStoppingRef.current) {
+      speakReplyWithBrowserTTS(replyText);
     } else {
       setModalState('IDLE');
     }
-  }, [currentLanguage, playAudioBase64]);
+  }, [currentLanguage, playAudioBase64, speakReplyWithBrowserTTS]);
 
   // ── Send Audio Blob to Sarvam AI STT Backend Fallback ─────────────────────
   const handleSendAudioToSarvam = useCallback(async (audioBlob: Blob) => {
@@ -299,6 +338,8 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
 
           if (replyAudioBase64 && !isStoppingRef.current) {
             playAudioBase64(replyAudioBase64);
+          } else if (replyText && !isStoppingRef.current) {
+            speakReplyWithBrowserTTS(replyText);
           } else {
             setModalState('IDLE');
           }
@@ -353,19 +394,22 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       );
       setModalState('IDLE');
     }
-  }, [currentLanguage, handleSendToSarvam, playAudioBase64, isHi]);
+  }, [currentLanguage, handleSendToSarvam, playAudioBase64, speakReplyWithBrowserTTS, isHi]);
 
 
   // ── TAP 1: Start Listening (Web Speech + MediaRecorder Concurrent) ─────────
   const startListening = useCallback(async () => {
     setErrorMessage(null);
 
-    // Stop any existing audio playback
+    // Stop any existing audio playback (server audio + browser TTS fallback)
     if (activeAudioRef.current) {
       activeAudioRef.current.pause();
       activeAudioRef.current.currentTime = 0;
       activeAudioRef.current = null;
     }
+    try {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    } catch {}
 
     // 1. Acquire microphone stream for hardware MediaRecorder
     let stream: MediaStream;
@@ -565,6 +609,9 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
         activeAudioRef.current.currentTime = 0;
         activeAudioRef.current = null;
       }
+      try {
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      } catch {}
       setModalState('IDLE');
     } else if (modalState === 'IDLE') {
       // TAP 1: Mic Idle -> Start
@@ -601,7 +648,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       abortControllerRef.current = null;
     }
 
-    // Pause and reset playing audio
+    // Pause and reset playing audio (server audio + browser TTS fallback)
     if (activeAudioRef.current) {
       try {
         activeAudioRef.current.pause();
@@ -609,6 +656,9 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       } catch {}
       activeAudioRef.current = null;
     }
+    try {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    } catch {}
 
     transcriptRef.current = '';
     setCurrentTranscript('');
@@ -640,6 +690,9 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       activeAudioRef.current.currentTime = 0;
       activeAudioRef.current = null;
     }
+    try {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    } catch {}
     setCurrentLanguage(lang);
     setErrorMessage(null);
     setModalState('IDLE');
