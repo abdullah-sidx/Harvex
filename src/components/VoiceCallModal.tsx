@@ -824,13 +824,13 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
             {/* Visual pulse indicator while listening */}
             {modalState === 'LISTENING' && (
               <>
-                <div className="absolute w-24 h-24 rounded-full bg-red-500/25 animate-ping pointer-events-none" />
-                <div className="absolute w-20 h-20 rounded-full bg-red-500/40 animate-pulse pointer-events-none" />
+                <div className="absolute w-24 h-24 rounded-full bg-red-500/25 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping pointer-events-none" />
+                <div className="absolute w-20 h-20 rounded-full bg-red-500/40 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse pointer-events-none" />
               </>
             )}
 
             {modalState === 'SPEAKING' && (
-              <div className="absolute w-20 h-20 rounded-full bg-emerald-500/30 animate-pulse pointer-events-none" />
+              <div className="absolute w-20 h-20 rounded-full bg-emerald-500/30 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse pointer-events-none" />
             )}
 
             <button
