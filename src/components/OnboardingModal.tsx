@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Language, UserFarmProfile } from '../types';
-import { TRANSLATIONS, INDIAN_STATES_DISTRICTS, SOIL_TYPES, IRRIGATION_TYPES } from '../data';
+import { INDIAN_STATES_DISTRICTS, SOIL_TYPES, IRRIGATION_TYPES } from '../data';
 
 interface OnboardingModalProps {
   language: Language;
@@ -85,7 +85,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               value={state}
               onChange={handleStateChange}
               required
-              className="w-full h-12 px-3.5 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-hidden transition-all shadow-xs"
+              className="w-full h-12 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] transition-all shadow-sm"
             >
               {Object.keys(INDIAN_STATES_DISTRICTS).map((st) => (
                 <option key={st} value={st}>
@@ -104,7 +104,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
               required
-              className="w-full h-12 px-3.5 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-hidden transition-all shadow-xs"
+              className="w-full h-12 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] transition-all shadow-sm"
             >
               {availableDistricts.map((d) => (
                 <option key={d} value={d}>
@@ -123,7 +123,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               value={soilType}
               onChange={(e) => setSoilType(e.target.value)}
               required
-              className="w-full h-12 px-3.5 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-hidden transition-all shadow-xs"
+              className="w-full h-12 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] transition-all shadow-sm"
             >
               {SOIL_TYPES.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -141,7 +141,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <select
               value={irrigation}
               onChange={(e) => setIrrigation(e.target.value)}
-              className="w-full h-12 px-3.5 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-hidden transition-all shadow-xs"
+              className="w-full h-12 bg-[#fcf9f8] border border-[#c1c8c2] rounded-xl text-sm font-bold text-[#1c1b1b] focus:border-[#012d1d] transition-all shadow-sm"
             >
               {IRRIGATION_TYPES.map((i) => (
                 <option key={i.value} value={i.value}>
@@ -155,7 +155,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full h-13 bg-[#1b4332] hover:bg-[#012d1d] active:scale-[0.99] text-[#c1ecd4] font-extrabold text-base rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+              className="w-full h-12 bg-[#1b4332] hover:bg-[#012d1d] active:scale-[0.99] text-[#c1ecd4] font-extrabold text-base rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
             >
               <span className="material-symbols-outlined">check_circle</span>
               <span>{isHi ? 'सहेजें और आगे बढ़ें' : 'Save & Continue'}</span>

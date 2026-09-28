@@ -166,7 +166,7 @@ def predict_with_gemini_vision(image_bytes: bytes, mime_type: str = "image/jpeg"
                     {
                         "parts": [
                             {
-                                "inline_data": {
+                                "inlineData": {
                                     "mime_type": mime_type,
                                     "data": b64_data
                                 }
@@ -297,7 +297,9 @@ class PlantDiseaseClassifier:
             if not self._is_loaded or self.model is None or self.processor is None:
                 self.load()
 
-            inputs = self.processor(images=image, return_tensors="pt").to(self.device)
+            inputs = self.processor(images=image, return_tensors="pt")
+            if self.device.type == "cuda":
+                inputs = {k: v.to(self.device) for k, v in inputs.items()}
             with torch.no_grad():
                 outputs = self.model(**inputs)
                 probs = torch.nn.functional.softmax(outputs.logits, dim=-1)

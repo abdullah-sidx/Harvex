@@ -106,7 +106,8 @@ The ESP32 firmware pushes sensor readings to FastAPI every 5–10 seconds and po
 │   ├── model.py                Gemini Flash + PlantVillage disease analysis
 │   ├── sarvam.py               Sarvam STT/TTS integration
 │   ├── schemas.py              Pydantic request/response models
-│   ├── test_backend.py         Backend contract tests (19 tests)
+│   ├── telemetry_state.py    In-memory sensor state and pump override
+│   ├── test_backend.py       Backend contract tests (22 tests)
 │   └── requirements.txt        Python dependencies
 └── assets/                     Static project assets
 ```
@@ -485,7 +486,7 @@ The ESP32 field node was built and tested end-to-end during the SIH 2026 hackath
 
 **Firmware behaviour:**
 - Connects to WiFi on boot; continues in offline mode with LCD status if connection fails
-- Reads all sensors every 5–10 seconds
+- Reads all sensors every 3 seconds
 - POSTs sensor data to `/api/sensor-data` (JSON matching the contract above)
 - GETs `/api/pump-command` and sets the relay accordingly
 - LCD shows live soil moisture %, temperature, pump state, and WiFi status
@@ -556,7 +557,7 @@ Run the full backend test suite:
 pytest backend/test_backend.py -v
 ```
 
-19 tests cover:
+22 tests cover:
 - Root health check and API contracts
 - Valid and malformed telemetry ingestion
 - Invalid pump status rejection

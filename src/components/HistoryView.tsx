@@ -46,7 +46,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
         <div className="relative">
           <button
             onClick={() => setShowFilterMenu(!showFilterMenu)}
-            className="flex items-center gap-2 bg-[#e5e2e1] hover:bg-[#dcd9d9] rounded-full px-4 py-2 text-[#414844] cursor-pointer transition-colors h-11 shadow-xs active:scale-95"
+            className="flex items-center gap-2 bg-[#e5e2e1] hover:bg-[#dcd9d9] rounded-full px-4 py-2 text-[#414844] cursor-pointer transition-colors h-11 shadow-sm active:scale-100"
           >
             <span className="material-symbols-outlined text-[20px]">filter_list</span>
             <span className="font-bold text-xs md:text-sm">{t.filter}</span>
@@ -94,11 +94,11 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               <div
                 key={item.id}
                 onClick={() => setSelectedItem(item)}
-                className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-4 flex items-center justify-between min-h-[68px] hover:bg-[#f6f3f2] hover:border-[#717973] transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+                className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-4 flex items-center justify-between min-h-[68px] hover:bg-[#f6f3f2] hover:border-[#717973] transition-all cursor-pointer shadow-sm active:scale-[0.99]"
               >
                 <div className="flex items-center gap-4">
                   <div
-                    className={`${item.iconBgClass} rounded-full w-12 h-12 flex items-center justify-center shrink-0 shadow-xs`}
+                    className={`${item.iconBgClass} rounded-full w-12 h-12 flex items-center justify-center shrink-0 shadow-sm`}
                   >
                     <span className="material-symbols-outlined text-2xl icon-fill">
                       {item.icon}
@@ -147,11 +147,11 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               <div
                 key={item.id}
                 onClick={() => setSelectedItem(item)}
-                className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-4 flex items-center justify-between min-h-[68px] hover:bg-[#f6f3f2] hover:border-[#717973] transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+                className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-4 flex items-center justify-between min-h-[68px] hover:bg-[#f6f3f2] hover:border-[#717973] transition-all cursor-pointer shadow-sm active:scale-[0.99]"
               >
                 <div className="flex items-center gap-4">
                   <div
-                    className={`${item.iconBgClass} rounded-full w-12 h-12 flex items-center justify-center shrink-0 shadow-xs`}
+                    className={`${item.iconBgClass} rounded-full w-12 h-12 flex items-center justify-center shrink-0 shadow-sm`}
                   >
                     <span className="material-symbols-outlined text-2xl icon-fill">
                       {item.icon}
@@ -208,7 +208,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
       {/* Item Detail Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-xs animate-fadeIn">
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
           <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-2xl p-6 max-w-md w-full shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">

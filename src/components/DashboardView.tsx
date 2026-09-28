@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Language, SensorData, AppTab, UserFarmProfile, CropRecommendation } from '../types';
 import { TRANSLATIONS } from '../data';
+import { getBackendUrl } from '../api';
 
 interface DashboardViewProps {
   language: Language;
@@ -22,15 +23,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const t = TRANSLATIONS[language];
   const isHi = language === 'hi';
   const [showSensorDetails, setShowSensorDetails] = useState(false);
-
-  // Helper to get backend URL from env or fallback
-  const getBackendUrl = () => {
-    const envUrl = (import.meta as any).env?.VITE_BACKEND_URL;
-    if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
-      return envUrl.replace(/\/$/, '');
-    }
-    return 'http://localhost:8000';
-  };
 
   // Live Hardware Sensor Telemetry State (NodeMCU ESP8266)
   const [liveTelemetry, setLiveTelemetry] = useState<{
@@ -66,7 +58,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [seasonName, setSeasonName] = useState<string>('Rabi (Winter Season / रबी)');
   const [isLoadingCrops, setIsLoadingCrops] = useState(false);
 
-  // Poll GET /api/sensor-data every 3 seconds for real hardware telemetry
+  // Rain Warning state
+  const [rainExpected, setRainExpected] = useState(false);
+
+  // Poll GET /api/sensor-data and /api/status every 3 seconds for real hardware telemetry
   useEffect(() => {
     let isMounted = true;
 
@@ -111,9 +106,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       }
     };
 
+    const pollStatus = async () => {
+      try {
+        const baseUrl = getBackendUrl();
+        let res: Response;
+        try {
+          res = await fetch(`${baseUrl}/api/status`);
+        } catch {
+          res = await fetch('/api/status');
+        }
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          setRainExpected(!!data.rain_expected);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
     // Initial fetch immediately
     pollSensorData();
-    const intervalId = setInterval(pollSensorData, 3000);
+    pollStatus();
+    const intervalId = setInterval(() => {
+      pollSensorData();
+      pollStatus();
+    }, 3000);
 
     return () => {
       isMounted = false;
@@ -279,7 +296,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </section>
 
       {/* 2. Crop Health Card */}
-      <section className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-6 shadow-xs hover:border-[#717973] transition-all">
+      <section className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-6 flex flex-col justify-between shadow-sm hover:border-[#717973] transition-all">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold text-[#414844] uppercase tracking-wider">
             {t.cropHealth}
@@ -313,7 +330,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* 3. Irrigation Status & Rain Warning Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Irrigation Status Card */}
-        <section className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-6 flex flex-col justify-between shadow-xs">
+        <section className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-6 flex flex-col justify-between shadow-sm">
           <div>
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold text-[#414844] uppercase tracking-wider">
@@ -322,11 +339,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <button
                 onClick={handlePumpToggle}
                 disabled={isTogglingPump}
-                className={`text-xs px-3 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs ${
+                className={`text-xs px-3 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
                   isPumpActive
                     ? 'bg-[#ba1a1a] text-white hover:bg-red-700'
                     : 'bg-[#1b4332] text-[#c1ecd4] hover:bg-[#012d1d]'
-                } ${isTogglingPump ? 'opacity-75 cursor-not-allowed' : 'active:scale-95'}`}
+                } ${isTogglingPump ? 'opacity-75 cursor-not-allowed' : 'active:scale-90'}`}
               >
                 {isTogglingPump && (
                   <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
@@ -374,7 +391,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </section>
 
         {/* Rain Warning Card */}
-        <section className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-6 flex flex-col justify-center border-l-4 border-l-[#ffdcbd] shadow-xs">
+        <section className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-6 flex flex-col justify-center border-l-4 border-l-[#ffdcbd] shadow-sm">
           <div className="flex items-start gap-4">
             <div className="p-3 bg-[#ffca98] rounded-full text-[#7a532a] shrink-0">
               <span className="material-symbols-outlined text-2xl icon-fill">
@@ -386,7 +403,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {t.rainExpected}
               </h2>
               <p className="text-sm md:text-base text-[#414844] mt-1 leading-relaxed">
-                {t.rainExpectedDesc}
+                {rainExpected ? t.rainExpectedDesc : isHi ? 'कोई वर्षा की जानकारी नहीं' : 'No rain forecast available'}
               </p>
             </div>
           </div>
@@ -394,7 +411,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Irrigation History Table */}
-      <section className="bg-[#ffffff] border border-[#c1c8c2] rounded-2xl p-5 md:p-6 shadow-xs space-y-3.5">
+      <section className="bg-[#ffffff] border border-[#c1c8c2] rounded-2xl p-5 md:p-6 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-800">
@@ -472,7 +489,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </section>
 
       {/* 4. Seasonal Crop Recommendations Engine */}
-      <section className="bg-[#ffffff] border border-[#c1c8c2] rounded-2xl p-6 shadow-xs space-y-4">
+      <section className="bg-[#ffffff] border border-[#c1c8c2] rounded-2xl p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <div className="flex items-center gap-2">
@@ -513,7 +530,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {cropRecommendations.map((crop, idx) => (
               <div
                 key={idx}
-                className="bg-[#fcf9f8] border border-[#c1c8c2] hover:border-[#012d1d] rounded-xl p-4.5 flex flex-col justify-between transition-all shadow-xs hover:shadow-md"
+                className="bg-[#fcf9f8] border border-[#c1c8c2] hover:border-[#012d1d] rounded-xl p-4 flex flex-col justify-between transition-all shadow-sm hover:shadow-md"
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -579,7 +596,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             {/* Visual Indicator: NodeMCU (ESP8266) Online vs Sensor Waiting (NodeMCU) */}
             {isNodeMcuOnline ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs animate-fadeIn">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm animate-fadeIn">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
@@ -587,7 +604,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span>NodeMCU (ESP8266) Online</span>
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-xs animate-fadeIn">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-fadeIn">
                 <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
                 <span>Sensor Waiting (NodeMCU)</span>
               </span>
@@ -613,8 +630,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Soil Moisture */}
-          <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-6 flex flex-col justify-between shadow-xs">
+           {/* Soil Moisture */}
+           <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-6 flex flex-col justify-between shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-[#414844]">
                 <span className="material-symbols-outlined text-xl">grass</span>
@@ -639,8 +656,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          {/* Temperature */}
-          <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-6 flex flex-col justify-between shadow-xs">
+           {/* Temperature */}
+           <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-6 flex flex-col justify-between shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-[#414844]">
                 <span className="material-symbols-outlined text-xl">thermostat</span>
@@ -674,8 +691,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          {/* Humidity */}
-          <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-6 flex flex-col justify-between shadow-xs">
+           {/* Humidity */}
+           <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-6 flex flex-col justify-between shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-[#414844]">
                 <span className="material-symbols-outlined text-xl">water</span>

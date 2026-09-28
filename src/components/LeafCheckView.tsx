@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Language, LeafCheckDiagnosis } from '../types';
 import { TRANSLATIONS, SAMPLE_LEAVES } from '../data';
+import { getBackendUrl } from '../api';
 
 interface LeafCheckViewProps {
   language: Language;
@@ -24,6 +25,15 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
+  // Stop camera stream on unmount
+  useEffect(() => {
+    return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
+
   // Trigger analysis for an image (base64 or URL)
   const analyzeImage = async (imageData: string, sampleInfo?: typeof SAMPLE_LEAVES[0]) => {
     setIsLoading(true);
@@ -37,6 +47,9 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
         const mimeMatch = header.match(/:(.*?);/);
         const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
         const byteCharacters = atob(base64);
+        if (byteCharacters.length > 10 * 1024 * 1024) {
+          throw new Error('File too large');
+        }
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
           byteNumbers[i] = byteCharacters.charCodeAt(i);
@@ -47,18 +60,20 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
         try {
           const resp = await fetch(imageData);
           const blob = await resp.blob();
+          if (blob.size > 10 * 1024 * 1024) {
+            throw new Error('File too large');
+          }
           formData.append('image', blob, 'leaf.jpg');
-        } catch {
-          // If remote URL is blocked by CORS, pass as empty or fallback
-          formData.append('image', new Blob([]), 'leaf.jpg');
+        } catch (fetchErr) {
+          throw new Error('Could not load image. Remote URL may be blocked by CORS.');
         }
       }
 
-      // 2. Fetch directly from Harvex FastAPI Backend
+      // 2. Fetch from backend via proxy
+      const backendUrl = getBackendUrl();
       let res: Response;
-      const endpoint = `http://localhost:8000/api/detect-disease?lang=${language}`;
       try {
-        res = await fetch(endpoint, {
+        res = await fetch(`${backendUrl}/api/detect-disease?lang=${language}`, {
           method: 'POST',
           body: formData,
         });
@@ -138,8 +153,8 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
         confidenceLevel: isHi ? 'त्रुटि' : 'Error',
         statusText: isHi ? 'कनेक्शन त्रुटि' : 'Connection Error',
         imageUrl: imageData,
-        advisory: `Backend connection error: ${err?.message || 'Failed to fetch from http://localhost:8000/api/detect-disease'}. Please ensure the FastAPI backend is running.`,
-        advisoryHi: `सर्वर कनेक्शन त्रुटि: ${err?.message || 'http://localhost:8000 से कनेक्ट नहीं हो सका'}। कृपया सुनिश्चित करें कि बैकएंड चालू है।`,
+        advisory: `Backend connection error: ${err?.message || 'Failed to connect to the backend.'} Please ensure the backend server is running.`,
+        advisoryHi: `सर्वर कनेक्शन त्रुटि: ${err?.message || 'बैकएंड से कनेक्ट नहीं हो सका'}। कृपया सुनिश्चित करें कि बैकएंड चालू है।`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -162,6 +177,10 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
         }
       };
       reader.readAsDataURL(file);
+    }
+    // Reset file input after selection
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -270,7 +289,7 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
           {/* Bento Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {/* Diagnosis Card */}
-            <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-5 md:p-6 flex flex-col justify-center min-h-[160px] shadow-xs">
+            <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-5 md:p-6 flex flex-col justify-center min-h-[160px] shadow-sm">
               <h2 className="text-xs font-bold text-[#414844] uppercase tracking-wider mb-2">
                 {t.diagnosis}
               </h2>
@@ -305,7 +324,7 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
             </div>
 
             {/* Confidence Score Card */}
-            <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-5 md:p-6 flex flex-col justify-center min-h-[160px] shadow-xs">
+            <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-5 md:p-6 flex flex-col justify-center min-h-[160px] shadow-sm">
               <h2 className="text-xs font-bold text-[#414844] uppercase tracking-wider mb-2">
                 {t.confidenceLevel}
               </h2>
@@ -329,7 +348,7 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
             </div>
 
             {/* Analyzed Image Card */}
-            <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-5 md:p-6 md:col-span-2 shadow-xs">
+            <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-5 md:p-6 md:col-span-2 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xs font-bold text-[#414844] uppercase tracking-wider">
                   {t.analyzedImage}
@@ -349,7 +368,7 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
             </div>
 
             {/* Advisory & Treatment Card */}
-            <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-5 md:p-6 md:col-span-2 shadow-xs">
+            <div className="bg-[#ffffff] border border-[#c1c8c2] rounded-xl p-5 md:p-6 md:col-span-2 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xs font-bold text-[#414844] uppercase tracking-wider flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[#012d1d] text-lg icon-fill">
@@ -379,7 +398,7 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
           <div className="mt-6 flex justify-end">
             <button
               onClick={handleRetake}
-              className="h-12 px-6 bg-[#ffffff] border-2 border-[#012d1d] text-[#012d1d] font-bold text-sm md:text-base rounded-lg hover:bg-[#f6f3f2] active:bg-[#e5e2e1] transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+              className="h-12 px-6 bg-[#ffffff] border-2 border-[#012d1d] text-[#012d1d] font-bold text-sm md:text-base rounded-lg hover:bg-[#f6f3f2] active:bg-[#e5e2e1] transition-all flex items-center gap-2 cursor-pointer shadow-sm"
             >
               <span className="material-symbols-outlined text-xl">photo_camera</span>
               <span>{t.retakePhoto}</span>
@@ -398,7 +417,7 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
             <p className="text-base md:text-lg text-[#414844] mt-1">{t.leafCheckDesc}</p>
           </div>
 
-          <div className="w-full aspect-square md:aspect-[2/1] bg-[#f6f3f2] border border-[#c1c8c2] rounded-xl flex flex-col items-center justify-center gap-4 shadow-xs">
+          <div className="w-full aspect-square md:aspect-[2/1] bg-[#f6f3f2] border border-[#c1c8c2] rounded-xl flex flex-col items-center justify-center gap-4 shadow-sm">
             <div className="relative w-16 h-16">
               <div className="absolute inset-0 border-4 border-[#e5e2e1] rounded-full"></div>
               <div className="absolute inset-0 border-4 border-[#012d1d] rounded-full border-t-transparent animate-spin"></div>
@@ -453,9 +472,9 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
             /* Upload Interactive Area (Exact match to HTML in prompt) */
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="w-full aspect-square md:aspect-[2/1] bg-[#ffffff] border border-[#c1c8c2] rounded-xl flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-[#e5e2e1] transition-all active:bg-[#1b4332] active:text-[#86af99] group shadow-xs select-none"
+              className="w-full aspect-square md:aspect-[2/1] bg-[#ffffff] border border-[#c1c8c2] rounded-xl flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-[#e5e2e1] transition-all active:bg-[#1b4332] active:text-[#86af99] group shadow-sm select-none"
             >
-              <div className="w-24 h-24 rounded-full bg-[#c1ecd4] flex items-center justify-center group-active:bg-[#ffffff] transition-colors shadow-xs">
+              <div className="w-24 h-24 rounded-full bg-[#c1ecd4] flex items-center justify-center group-active:bg-[#ffffff] transition-colors shadow-sm">
                 <span className="material-symbols-outlined text-[48px] text-[#274e3d]">
                   photo_camera
                 </span>
@@ -470,7 +489,7 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               onClick={startCamera}
-              className="px-4 py-2.5 bg-[#f0edec] hover:bg-[#e5e2e1] border border-[#c1c8c2] rounded-lg font-bold text-xs md:text-sm text-[#012d1d] flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+              className="px-4 py-2.5 bg-[#f0edec] hover:bg-[#e5e2e1] border border-[#c1c8c2] rounded-lg font-bold text-xs md:text-sm text-[#012d1d] flex items-center gap-2 transition-all cursor-pointer shadow-sm"
             >
               <span className="material-symbols-outlined text-[18px]">videocam</span>
               <span>{t.cameraCapture}</span>
@@ -478,7 +497,7 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
 
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2.5 bg-[#f0edec] hover:bg-[#e5e2e1] border border-[#c1c8c2] rounded-lg font-bold text-xs md:text-sm text-[#012d1d] flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+              className="px-4 py-2.5 bg-[#f0edec] hover:bg-[#e5e2e1] border border-[#c1c8c2] rounded-lg font-bold text-xs md:text-sm text-[#012d1d] flex items-center gap-2 transition-all cursor-pointer shadow-sm"
             >
               <span className="material-symbols-outlined text-[18px]">file_upload</span>
               <span>{t.manualUpload}</span>
@@ -501,7 +520,7 @@ export const LeafCheckView: React.FC<LeafCheckViewProps> = ({
                 <div
                   key={sample.id}
                   onClick={() => analyzeImage(sample.imageUrl, sample)}
-                  className="bg-[#ffffff] border border-[#c1c8c2] hover:border-[#012d1d] rounded-lg p-2.5 flex items-center gap-3 cursor-pointer hover:bg-[#f6f3f2] transition-all shadow-xs group"
+                  className="bg-[#ffffff] border border-[#c1c8c2] hover:border-[#012d1d] rounded-lg p-2.5 flex items-center gap-3 cursor-pointer hover:bg-[#f6f3f2] transition-all shadow-sm group"
                 >
                   <img
                     src={sample.imageUrl}

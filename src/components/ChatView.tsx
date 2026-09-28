@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Language, UserFarmProfile, SensorData } from '../types';
 import { TRANSLATIONS } from '../data';
+import { getBackendUrl } from '../api';
 
 interface ChatViewProps {
   language: Language;
@@ -21,7 +22,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   sensorData,
 }) => {
   const isHi = language === 'hi';
-  const t = TRANSLATIONS[language];
+  const _t = TRANSLATIONS[language]; void _t;
 
   const [inputMessage, setInputMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -91,7 +92,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
     setIsLoading(true);
 
     try {
-      const endpoint = 'http://localhost:8000/api/chat';
+      const backendUrl = getBackendUrl();
+      const endpoint = `${backendUrl}/api/chat`;
       let res: Response;
 
       const payload = {
@@ -184,7 +186,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       </div>
 
       {/* Messages Scroll Container */}
-      <div className="flex-1 bg-[#ffffff] border border-[#c1c8c2] rounded-2xl p-4 md:p-6 overflow-y-auto space-y-4 shadow-xs">
+      <div className="flex-1 bg-[#ffffff] border border-[#c1c8c2] rounded-2xl p-4 md:p-6 overflow-y-auto space-y-4 shadow-sm">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -193,10 +195,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
             } animate-fadeIn`}
           >
             <div
-              className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-4 shadow-xs text-sm md:text-base ${
+               className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-4 shadow-sm text-sm md:text-base ${
                 msg.sender === 'user'
-                  ? 'bg-[#1b4332] text-[#c1ecd4] rounded-br-xs'
-                  : 'bg-[#f0edec] text-[#1c1b1b] border border-[#c1c8c2] rounded-bl-xs'
+                  ? 'bg-[#1b4332] text-[#c1ecd4] rounded-br'
+                  : 'bg-[#f0edec] text-[#1c1b1b] border border-[#c1c8c2] rounded-bl'
               }`}
             >
               <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
@@ -248,7 +250,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           <button
             key={idx}
             onClick={() => handleSendMessage(prompt)}
-            className="shrink-0 text-xs font-semibold px-3 py-1.5 bg-[#f0edec] hover:bg-[#e5e2e1] border border-[#c1c8c2] text-[#012d1d] rounded-full transition-all cursor-pointer shadow-xs whitespace-nowrap"
+            className="shrink-0 text-xs font-semibold px-3 py-1.5 bg-[#f0edec] hover:bg-[#e5e2e1] border border-[#c1c8c2] text-[#012d1d] rounded-full transition-all cursor-pointer shadow-sm whitespace-nowrap"
           >
             💡 {prompt}
           </button>
@@ -272,13 +274,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
               ? 'फसल, बीमारी, खाद या मौसम के बारे में पूछें...'
               : 'Ask about crops, diseases, irrigation, fertilizers...'
           }
-          className="flex-1 h-12 px-4 bg-[#ffffff] border border-[#c1c8c2] rounded-xl text-sm font-semibold text-[#1c1b1b] focus:border-[#012d1d] focus:outline-hidden transition-all shadow-xs"
+          className="flex-1 h-12 px-4 bg-[#ffffff] border border-[#c1c8c2] rounded-xl text-sm font-semibold text-[#1c1b1b] focus:border-[#012d1d] transition-all shadow-sm"
         />
 
         <button
           type="submit"
           disabled={!inputMessage.trim() || isLoading}
-          className="h-12 px-5 bg-[#1b4332] hover:bg-[#012d1d] disabled:opacity-50 disabled:cursor-not-allowed text-[#c1ecd4] font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+          className="h-12 px-5 bg-[#1b4332] hover:bg-[#012d1d] disabled:opacity-50 disabled:cursor-not-allowed text-[#c1ecd4] font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer shadow-sm"
         >
           <span className="material-symbols-outlined text-lg">send</span>
           <span className="hidden sm:inline">{isHi ? 'भेजें' : 'Send'}</span>

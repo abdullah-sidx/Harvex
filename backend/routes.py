@@ -1,16 +1,19 @@
 import logging
 import os
 import sys
+import uuid
 from typing import Optional, Dict, Any, List
+import httpx
 
 # Ensure backend directory is in sys.path
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
-from fastapi import APIRouter, File, Form, UploadFile, Query, HTTPException, status
+from fastapi import APIRouter, File, Form, UploadFile, Query, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 
+from security import rate_limiter, get_client_ip, validate_image_file, MAX_FILE_SIZE_BYTES
 from schemas import (
     SensorDataPayload,
     SensorDataResponse,
@@ -177,7 +180,7 @@ async def get_pump_command(device_id: str = Query(default="harvex-node-1", descr
         sensor_rec = database.get_latest_sensor_reading(device_id=device_id)
         soil_moisture = float(sensor_rec.get("soil_moisture_pct", 50.0))
 
-    _, rain_expected = weather.get_rain_forecast()
+    _, rain_expected = await weather.get_rain_forecast()
 
     command_data = decision.compute_pump_command(
         soil_moisture_pct=soil_moisture,
@@ -192,15 +195,20 @@ async def get_pump_command(device_id: str = Query(default="harvex-node-1", descr
     status_code=status.HTTP_200_OK,
     summary="Manually toggle irrigation pump relay from website"
 )
-async def toggle_pump(payload: PumpToggleRequest):
+async def toggle_pump(request: Request, payload: PumpToggleRequest):
     """
     Triggered by frontend pump button. Updates pending_pump_command,
     adds an entry to pump_history, and sets an LCD display message ("Web Pump ON" / "Web Pump OFF").
     """
+    ip = get_client_ip(request)
+    allowed, retry_after = rate_limiter.check_ip(ip, tier="authenticated")
+    if not allowed:
+        raise HTTPException(status_code=429, detail=f"Too many requests. Retry after {int(retry_after)}s.")
+
     now_iso = datetime.now(timezone.utc).isoformat()
-    is_on = payload.state.lower() == "on"
+    is_on = payload.state.strip().lower() == "on"
     action = "ON" if is_on else "OFF"
-    runtime = payload.duration_seconds if is_on else 0
+    runtime = max(0, min(payload.duration_seconds or 30, decision.MAX_PUMP_RUNTIME_SECONDS)) if is_on else 0
     msg = "Web Pump ON" if is_on else "Web Pump OFF"
 
     # 1. Update pending command for NodeMCU
@@ -269,9 +277,26 @@ async def get_pump_history_endpoint(limit: int = Query(default=50, ge=1, le=100)
     summary="Classify plant disease from uploaded leaf photo with optional voice synthesis"
 )
 async def detect_disease(
+    request: Request,
     image: Optional[UploadFile] = File(None),
     lang: str = Query(default="en", description="Preferred language for advisory & TTS: 'en' or 'hi'")
 ):
+    # Rate limit
+    _ip = get_client_ip(request)
+    _ok, _retry = rate_limiter.check(_ip, tier="authenticated")
+    if not _ok:
+        raise HTTPException(status_code=429, detail=f"Too many requests. Retry after {_retry}s.")
+
+    # Validate file upload
+    if image:
+        _valid, _err = await validate_image_file(image)
+        if not _valid:
+            raise HTTPException(status_code=400, detail=_err)
+
+    # Sanitize lang parameter
+    lang = str(lang).strip().lower()[:5]
+    if lang not in ("en", "hi"):
+        lang = "en"
     """
     Called by Farmer UI when uploading a leaf photo.
     Runs pretrained Vision Transformer (ViT) model on the image.
@@ -378,7 +403,7 @@ async def get_status(
     sensor_data = database.get_latest_sensor_reading(device_id=device_id)
 
     # 2. Fetch live rain forecast
-    _, rain_expected = weather.get_rain_forecast()
+    _, rain_expected = await weather.get_rain_forecast()
 
     # 3. Fetch latest disease detection result
     latest_disease = database.get_latest_disease_detection(device_id=device_id)
@@ -431,8 +456,13 @@ async def get_status(
     status_code=status.HTTP_200_OK,
     summary="Synthesize speech from text using Sarvam AI TTS (Bilingual Hindi & English)"
 )
-async def synthesize_voice(payload: VoiceSynthesizeRequest):
+async def synthesize_voice(request: Request, payload: VoiceSynthesizeRequest):
     """
+    _ip = get_client_ip(request)
+    _ok, _retry = rate_limiter.check(_ip, tier="authenticated")
+    if not _ok:
+        raise HTTPException(status_code=429, detail=f"Too many requests. Retry after {_retry}s.")
+
     Synthesizes input text to voice audio base64 using Sarvam AI Text-to-Speech.
     Supports Hindi ('hi-IN') and English ('en-IN').
     """
@@ -456,9 +486,18 @@ async def synthesize_voice(payload: VoiceSynthesizeRequest):
     summary="Transcribe spoken voice audio to text using Sarvam AI STT"
 )
 async def transcribe_voice(
+    request: Request,
     file: UploadFile = File(..., description="Audio recording file (wav, mp3, webm, etc.)"),
     language: str = Form(default="hi", description="Spoken language code: 'hi' or 'en'")
 ):
+    # Rate limit
+    _ip = get_client_ip(request)
+    _ok, _retry = rate_limiter.check(_ip, tier="authenticated")
+    if not _ok:
+        raise HTTPException(status_code=429, detail=f"Too many requests. Retry after {_retry}s.")
+
+    # Sanitize language
+    language = str(language).strip()[:5]
     """
     Transcribes uploaded audio bytes to text using Sarvam AI Speech-to-Text.
     """
@@ -553,8 +592,13 @@ async def query_gemini_llm(
     status_code=status.HTTP_200_OK,
     summary="Get seasonal crop recommendations based on farm geography and soil"
 )
-async def recommend_crops(payload: CropRecommendationRequest):
+async def recommend_crops(request: Request, payload: CropRecommendationRequest):
     """
+    _ip = get_client_ip(request)
+    _ok, _retry = rate_limiter.check(_ip, tier="public")
+    if not _ok:
+        raise HTTPException(status_code=429, detail=f"Too many requests. Retry after {_retry}s.")
+
     Recommends optimal crops tailored to state, district, soil type, irrigation, and season.
     Powered by Gemini Flash with regional agronomic fallback.
     """
@@ -937,8 +981,13 @@ def generate_dynamic_agronomic_response(
     status_code=status.HTTP_200_OK,
     summary="Hands-free voice conversation endpoint with Sarvam AI audio synthesis"
 )
-async def chat_voice(payload: VoiceChatRequest):
+async def chat_voice(request: Request, payload: VoiceChatRequest):
     """
+    _ip = get_client_ip(request)
+    _ok, _retry = rate_limiter.check(_ip, tier="authenticated")
+    if not _ok:
+        raise HTTPException(status_code=429, detail=f"Too many requests. Retry after {_retry}s.")
+
     Handles live spoken dialogue from farmers.
     Validates transcript, queries Gemini Flash for agronomic advice, and synthesizes Indic voice via Sarvam AI.
     """
@@ -1087,8 +1136,13 @@ Provide structured, clear, direct, and actionable advice answering the farmer's 
     status_code=status.HTTP_200_OK,
     summary="MediaRecorder + Sarvam STT voice pipeline endpoint"
 )
-async def voice_query(payload: VoiceQueryRequest):
+async def voice_query(request: Request, payload: VoiceQueryRequest):
     """
+    _ip = get_client_ip(request)
+    _ok, _retry = rate_limiter.check(_ip, tier="authenticated")
+    if not _ok:
+        raise HTTPException(status_code=429, detail=f"Too many requests. Retry after {_retry}s.")
+
     Receives a transcript already produced by Sarvam STT on the frontend.
     Returns:
       - response_text  : Gemini agronomic answer
@@ -1162,7 +1216,7 @@ async def voice_query(payload: VoiceQueryRequest):
 
     # Weather alert
     try:
-        rain_prob, rain_expected = weather.get_rain_forecast()
+        rain_prob, rain_expected = await weather.get_rain_forecast()
         if rain_expected:
             weather_alert = f"Rain expected in the next 6 hours (probability {rain_prob * 100:.0f}%)"
         else:

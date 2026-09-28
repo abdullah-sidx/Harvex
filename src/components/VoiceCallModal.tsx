@@ -120,6 +120,43 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
     }
   }, []);
 
+  // ── Browser-Native TTS Fallback (phone-call voice when Sarvam audio missing) ──
+  const speakReplyWithBrowserTTS = useCallback((text: string) => {
+    const clean = (text || '').trim();
+    if (!clean || isStoppingRef.current) {
+      setModalState('IDLE');
+      return;
+    }
+    try {
+      if (!('speechSynthesis' in window)) {
+        setModalState('IDLE');
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(clean);
+      const langCode = currentLanguage === 'hi' ? 'hi-IN' : 'en-IN';
+      utterance.lang = langCode;
+      utterance.rate = 0.95;
+      try {
+        const voices = window.speechSynthesis.getVoices?.() || [];
+        const match = voices.find((v) =>
+          (v.lang || '').toLowerCase().startsWith(currentLanguage === 'hi' ? 'hi' : 'en')
+        );
+        if (match) utterance.voice = match;
+      } catch {}
+      setModalState('SPEAKING');
+      utterance.onend = () => {
+        if (!isStoppingRef.current) setModalState('IDLE');
+      };
+      utterance.onerror = () => {
+        if (!isStoppingRef.current) setModalState('IDLE');
+      };
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setModalState('IDLE');
+    }
+  }, [currentLanguage]);
+
   // ── Release Microphone Stream Tracks Helper ───────────────────────────────
   const releaseMicStream = useCallback(() => {
     if (micStreamRef.current) {
@@ -215,13 +252,15 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
     };
     setMessages((prev) => [...prev.slice(-9), assistantMsg]);
 
-    // 4. Play Reply Audio ONCE Automatically
+    // 4. Play Reply Audio ONCE Automatically (browser TTS fallback = phone-call voice)
     if (replyAudioBase64 && !isStoppingRef.current) {
       playAudioBase64(replyAudioBase64);
+    } else if (replyText && !isStoppingRef.current) {
+      speakReplyWithBrowserTTS(replyText);
     } else {
       setModalState('IDLE');
     }
-  }, [currentLanguage, playAudioBase64]);
+  }, [currentLanguage, playAudioBase64, speakReplyWithBrowserTTS]);
 
   // ── Send Audio Blob to Sarvam AI STT Backend Fallback ─────────────────────
   const handleSendAudioToSarvam = useCallback(async (audioBlob: Blob) => {
@@ -299,6 +338,8 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
 
           if (replyAudioBase64 && !isStoppingRef.current) {
             playAudioBase64(replyAudioBase64);
+          } else if (replyText && !isStoppingRef.current) {
+            speakReplyWithBrowserTTS(replyText);
           } else {
             setModalState('IDLE');
           }
@@ -341,40 +382,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
         }
       }
 
-      // ── Tier 3: Direct Browser-to-Sarvam AI STT API with Auto-Detection ──
-      const sarvamKey =
-        (import.meta as any).env?.VITE_SARVAM_API_KEY ||
-        'sk_r62icrot_JRmaNbLKKuGbzseNG0IycixQ';
-
-      if (sarvamKey) {
-        try {
-          const directForm = new FormData();
-          directForm.append('file', cleanBlob, 'user_voice.webm');
-          directForm.append('language_code', 'unknown');
-          directForm.append('model', 'saarika:v2.5');
-
-          const directRes = await fetch('https://api.sarvam.ai/speech-to-text', {
-            method: 'POST',
-            headers: {
-              'api-subscription-key': sarvamKey,
-            },
-            body: directForm,
-            signal: controller.signal,
-          });
-
-          if (directRes.ok) {
-            const directData = await directRes.json();
-            const transcript = (directData.transcript || '').trim();
-            if (transcript) {
-              await handleSendToSarvam(transcript);
-              return;
-            }
-          }
-        } catch (directErr) {
-          console.warn('[DirectSarvam] Fallback attempt failed:', directErr);
-        }
-      }
-
+      // ── Tier 3: Fallback - No direct browser-to-Sarvam call ──
       throw new Error('Sarvam voice transcription returned no speech content');
     } catch (err: any) {
       if (err?.name === 'AbortError' || isStoppingRef.current) return;
@@ -386,19 +394,22 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       );
       setModalState('IDLE');
     }
-  }, [currentLanguage, handleSendToSarvam, playAudioBase64, isHi]);
+  }, [currentLanguage, handleSendToSarvam, playAudioBase64, speakReplyWithBrowserTTS, isHi]);
 
 
   // ── TAP 1: Start Listening (Web Speech + MediaRecorder Concurrent) ─────────
   const startListening = useCallback(async () => {
     setErrorMessage(null);
 
-    // Stop any existing audio playback
+    // Stop any existing audio playback (server audio + browser TTS fallback)
     if (activeAudioRef.current) {
       activeAudioRef.current.pause();
       activeAudioRef.current.currentTime = 0;
       activeAudioRef.current = null;
     }
+    try {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    } catch {}
 
     // 1. Acquire microphone stream for hardware MediaRecorder
     let stream: MediaStream;
@@ -598,6 +609,9 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
         activeAudioRef.current.currentTime = 0;
         activeAudioRef.current = null;
       }
+      try {
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      } catch {}
       setModalState('IDLE');
     } else if (modalState === 'IDLE') {
       // TAP 1: Mic Idle -> Start
@@ -634,7 +648,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       abortControllerRef.current = null;
     }
 
-    // Pause and reset playing audio
+    // Pause and reset playing audio (server audio + browser TTS fallback)
     if (activeAudioRef.current) {
       try {
         activeAudioRef.current.pause();
@@ -642,6 +656,9 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       } catch {}
       activeAudioRef.current = null;
     }
+    try {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    } catch {}
 
     transcriptRef.current = '';
     setCurrentTranscript('');
@@ -673,6 +690,9 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
       activeAudioRef.current.currentTime = 0;
       activeAudioRef.current = null;
     }
+    try {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    } catch {}
     setCurrentLanguage(lang);
     setErrorMessage(null);
     setModalState('IDLE');
@@ -771,8 +791,8 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
                 <div
                   className={`max-w-[82%] px-4 py-3 rounded-2xl shadow-md text-sm leading-relaxed ${
                     isUser
-                      ? 'bg-emerald-600 text-white rounded-br-xs'
-                      : 'bg-[#1b4332]/90 border border-emerald-500/20 text-emerald-50 rounded-bl-xs'
+                      ? 'bg-emerald-600 text-white rounded-br'
+                      : 'bg-[#1b4332]/90 border border-emerald-500/20 text-emerald-50 rounded-bl'
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{msg.text}</p>
@@ -800,7 +820,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
           {/* Assistant Typing / Processing Indicator */}
           {modalState === 'PROCESSING' && (
             <div className="flex items-start">
-              <div className="bg-[#1b4332]/80 border border-emerald-500/20 px-4 py-2.5 rounded-2xl rounded-bl-xs flex items-center gap-2 text-xs text-emerald-300">
+              <div className="bg-[#1b4332]/80 border border-emerald-500/20 px-4 py-2.5 rounded-2xl rounded-bl flex items-center gap-2 text-xs text-emerald-300">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce"></span>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.2s]"></span>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.4s]"></span>
@@ -857,13 +877,13 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
             {/* Visual pulse indicator while listening */}
             {modalState === 'LISTENING' && (
               <>
-                <div className="absolute w-24 h-24 rounded-full bg-red-500/25 animate-ping pointer-events-none" />
-                <div className="absolute w-20 h-20 rounded-full bg-red-500/40 animate-pulse pointer-events-none" />
+                <div className="absolute w-24 h-24 rounded-full bg-red-500/25 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping pointer-events-none" />
+                <div className="absolute w-20 h-20 rounded-full bg-red-500/40 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse pointer-events-none" />
               </>
             )}
 
             {modalState === 'SPEAKING' && (
-              <div className="absolute w-20 h-20 rounded-full bg-emerald-500/30 animate-pulse pointer-events-none" />
+              <div className="absolute w-20 h-20 rounded-full bg-emerald-500/30 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse pointer-events-none" />
             )}
 
             <button
@@ -877,7 +897,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({
                   ? 'bg-emerald-950 text-emerald-600 cursor-not-allowed opacity-75'
                   : modalState === 'SPEAKING'
                   ? 'bg-emerald-700 hover:bg-emerald-600 text-white shadow-emerald-700/50'
-                  : 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-emerald-900/60'
+                  : 'bg-emerald-600 hover:bg-emerald-500 active:scale-90 text-white shadow-emerald-900/60'
               }`}
               title={
                 modalState === 'LISTENING'
